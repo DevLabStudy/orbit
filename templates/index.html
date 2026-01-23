@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Orbit Control</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <style>
+        :root {
+            --bg: #0d1117; --card: #161b22; --border: #30363d;
+            --accent: #58a6ff; --error: #f85149; --success: #3fb950;
+            --warning: #d29922; --text: #c9d1d9;
+        }
+        * { box-sizing: border-box; }
+        body {
+            background-color: var(--bg); color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 30px; margin: 0; line-height: 1.5;
+        }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 20px;
+        }
+        h1 { font-size: 1.5rem; font-weight: 400; margin: 0; }
+        h1 b { color: var(--accent); }
+
+        .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; }
+        .tab {
+            background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+            padding: 20px; cursor: pointer; transition: all 0.2s;
+        }
+        .tab:hover { border-color: #8b949e; }
+        .tab.active { border-color: var(--accent); background: #21262d; }
+        .tab.disabled { opacity: 0.5; cursor: not-allowed; }
+        .tab.disabled:hover { border-color: var(--border); }
+        .tab-label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; }
+        .count { display: block; font-size: 1.8rem; font-weight: 600; margin-top: 5px; }
+
+        #details-section {
+            margin-top: 25px; background: var(--card); border: 1px solid var(--border);
+            border-radius: 6px; display: none; overflow: hidden;
+        }
+        #details-section.visible { display: block; }
+
+        .section-header {
+            padding: 15px 20px; background: #21262d; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .section-title { font-size: 0.9rem; font-weight: 600; color: #f0f6fc; }
+
+        .btn {
+            background: var(--accent); color: #0d1117; border: none;
+            padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600;
+        }
+        .btn:hover { opacity: 0.8; }
+        .btn-secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+
+        .list-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 20px; border-bottom: 1px solid var(--border);
+        }
+        .list-item:last-child { border-bottom: none; }
+        .list-item:hover { background: #21262d; }
+
+        .info { display: flex; align-items: center; gap: 12px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot.running { background: var(--success); box-shadow: 0 0 5px var(--success); }
+        .dot.stopped, .dot.exited { background: var(--error); }
+        .dot.paused, .dot.restarting { background: var(--warning); }
+        .dot.restarting { animation: pulse 1s infinite; }
+        .dot.default { background: var(--accent); }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .item-name { font-weight: 500; }
+        .item-details { font-family: monospace; font-size: 0.75rem; color: #8b949e; }
+        .item-meta { display: flex; align-items: center; gap: 10px; }
+        .item-id { font-family: monospace; font-size: 0.7rem; color: #6e7681; }
+
+        .actions { display: flex; gap: 5px; }
+        .action-btn {
+            background: transparent; border: 1px solid var(--border); color: var(--text);
+            padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem;
+        }
+        .action-btn:hover { background: #21262d; }
+        .action-btn.start { color: var(--success); border-color: var(--success); }
+        .action-btn.stop { color: var(--warning); border-color: var(--warning); }
+        .action-btn.restart { color: var(--accent); border-color: var(--accent); }
+        .action-btn.remove { color: var(--error); border-color: var(--error); }
+
+        button.logout {
+            background: transparent; color: var(--error); border: 1px solid var(--border);
+            padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+        }
+
+        .empty-state { padding: 40px; text-align: center; color: #6e7681; }
+
+        /* Modal */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal.visible { display: flex; }
+        .modal-content {
+            background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+            padding: 25px; width: 450px; max-height: 80vh; overflow-y: auto;
+        }
+        .modal-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.8rem; color: #8b949e; margin-bottom: 5px; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 10px; background: var(--bg);
+            border: 1px solid var(--border); color: var(--text); border-radius: 4px;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none; border-color: var(--accent);
+        }
+        .form-group small { color: #6e7681; font-size: 0.7rem; }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; padding: 12px 20px;
+            background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+            display: none; z-index: 1001; max-width: 350px;
+        }
+        .toast.visible { display: block; animation: slideIn 0.3s ease; }
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--error); }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🚀 Orbit <b>Control</b></h1>
+        <button class="logout" onclick="logout()">Logout</button>
+    </div>
+
+    <div class="tabs">
+        <div class="tab" data-type="containers">
+            <span class="tab-label">Containers</span>
+            <span class="count" id="count-containers">0</span>
+        </div>
+        <div class="tab" data-type="images">
+            <span class="tab-label">Images</span>
+            <span class="count" id="count-images">0</span>
+        </div>
+        <div class="tab" data-type="volumes">
+            <span class="tab-label">Volumes</span>
+            <span class="count" id="count-volumes">0</span>
+        </div>
+        <div class="tab" data-type="networks">
+            <span class="tab-label">Networks</span>
+            <span class="count" id="count-networks">0</span>
+        </div>
+        <div class="tab disabled" data-type="stacks">
+            <span class="tab-label">Stacks</span>
+            <span class="count" id="count-stacks" style="font-size: 0.8rem; color: #d29922;">coming soon</span>
+        </div>
+    </div>
+
+    <div id="details-section">
+        <div class="section-header">
+            <span class="section-title" id="details-header">Lista</span>
+            <button class="btn" id="btn-add" style="display:none;" onclick="openCreateModal()">+ Dodaj</button>
+        </div>
+        <div id="details-list"></div>
+    </div>
+
+    <!-- Modal tworzenia kontenera -->
+    <div class="modal" id="container-modal">
+        <div class="modal-content">
+            <div class="modal-title">🐳 Utwórz kontener</div>
+
+            <div class="form-group">
+                <label>Obraz *</label>
+                <input type="text" id="c-image" placeholder="np. nginx:latest, postgres:15">
+                <small>Obraz zostanie pobrany automatycznie jeśli nie istnieje</small>
+            </div>
+
+            <div class="form-group">
+                <label>Nazwa kontenera</label>
+                <input type="text" id="c-name" placeholder="np. my-nginx (opcjonalne)">
+            </div>
+
+            <div class="form-group">
+                <label>Porty</label>
+                <div class="form-row">
+                    <input type="text" id="c-port-host" placeholder="Port hosta (np. 8080)">
+                    <input type="text" id="c-port-container" placeholder="Port kontenera (np. 80)">
+                </div>
+                <small>Mapowanie: host:kontener</small>
+            </div>
+
+            <div class="form-group">
+                <label>Zmienne środowiskowe</label>
+                <input type="text" id="c-env" placeholder="KEY=value, DB_HOST=localhost">
+                <small>Oddzielone przecinkami</small>
+            </div>
+
+            <div class="form-group">
+                <label>Restart Policy</label>
+                <select id="c-restart">
+                    <option value="no">No (nie restartuj)</option>
+                    <option value="always">Always (zawsze)</option>
+                    <option value="on-failure">On Failure (przy błędzie)</option>
+                    <option value="unless-stopped">Unless Stopped</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Sieć</label>
+                <select id="c-network">
+                    <option value="">Domyślna (bridge)</option>
+                </select>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('container-modal')">Anuluj</button>
+                <button class="btn" onclick="createContainer()">Utwórz</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal tworzenia sieci/volume -->
+    <div class="modal" id="simple-modal">
+        <div class="modal-content">
+            <div class="modal-title" id="simple-modal-title">Utwórz</div>
+
+            <div class="form-group">
+                <label>Nazwa *</label>
+                <input type="text" id="simple-name" placeholder="Nazwa">
+            </div>
+
+            <div class="form-group" id="driver-group" style="display:none;">
+                <label>Driver</label>
+                <select id="simple-driver">
+                    <option value="bridge">bridge</option>
+                    <option value="host">host</option>
+                    <option value="overlay">overlay</option>
+                    <option value="macvlan">macvlan</option>
+                </select>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('simple-modal')">Anuluj</button>
+                <button class="btn" onclick="confirmSimpleCreate()">Utwórz</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pull image -->
+    <div class="modal" id="pull-modal">
+        <div class="modal-content">
+            <div class="modal-title">📥 Pobierz obraz</div>
+
+            <div class="form-group">
+                <label>Nazwa obrazu *</label>
+                <input type="text" id="pull-image" placeholder="np. nginx:latest, redis:7-alpine">
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('pull-modal')">Anuluj</button>
+                <button class="btn" onclick="pullImage()">Pobierz</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

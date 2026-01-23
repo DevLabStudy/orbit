@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Orbit Login</title>
+    <style>
+        body { background: #0b1120; color: white; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-card { background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #334155; width: 320px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h2 { text-align: center; font-weight: 300; margin-bottom: 30px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-login { background: #38bdf8; color: #0f172a; }
+        .btn-register { background: transparent; color: #38bdf8; border: 1px solid #38bdf8; }
+        button:hover { opacity: 0.8; transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>Orbit <span style="color:#38bdf8; font-weight:bold">Control</span></h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Hasło">
+        <button class="btn-login" onclick="auth('/login')">Zaloguj</button>
+        <button class="btn-register" onclick="auth('/register')">Zarejestruj się</button>
+    </div>
+    <script>
+        async function auth(path) {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const res = await fetch(path, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({email, password})
+            });
+            const data = await res.json();
+            if(res.ok && path === '/login') window.location.reload();
+            else alert(data.message || "Błąd!");
+        }
+    </script>
+</body>
+</html>
