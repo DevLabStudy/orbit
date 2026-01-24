@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚀 Orbit Control
+#  Orbit Control
 
 ### Simple & Beautiful Docker Management Panel
 
