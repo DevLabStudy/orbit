@@ -86,7 +86,7 @@ docker-compose up -d
 ---
 
 ##  Screenshots
-
+<p align="center">
 <details>
 <summary>Click to expand</summary>
 
@@ -95,7 +95,7 @@ docker-compose up -d
 
 ### Dashboard
 <img src="docs/screenshot.png" alt="Orbit Control Screenshot" width="600">
-
+</p>
 
 </details>
 
