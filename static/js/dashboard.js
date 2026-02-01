@@ -1,7 +1,6 @@
 let cachedData = null;
 let activeTab = null;
-
-// ============ ODŚWIEŻANIE DANYCH ============
+let currentLogsContainer = null;
 
 async function refreshData() {
     try {
@@ -15,7 +14,7 @@ async function refreshData() {
         document.getElementById('count-images').innerText = data.counts.images;
         document.getElementById('count-volumes').innerText = data.counts.volumes;
         document.getElementById('count-networks').innerText = data.counts.networks;
-        document.getElementById('count-stacks').innerText = data.counts.stacks;
+        document.getElementById('count-stacks').innerText = data.counts.stacks || 0;
 
         updateNetworkSelect();
 
@@ -37,8 +36,6 @@ function updateNetworkSelect() {
     });
 }
 
-// ============ WYŚWIETLANIE LISTY ============
-
 function updateList(type) {
     const list = document.getElementById('details-list');
     const header = document.getElementById('details-header');
@@ -56,7 +53,7 @@ function updateList(type) {
     };
     header.innerText = titles[type] || 'Lista';
 
-    addBtn.style.display = ['containers', 'volumes', 'networks', 'images'].includes(type) ? 'block' : 'none';
+    addBtn.style.display = ['containers', 'volumes', 'networks', 'images', 'stacks'].includes(type) ? 'block' : 'none';
 
     const items = cachedData[type] || [];
 
@@ -83,6 +80,7 @@ function updateList(type) {
                         ${item.status !== 'running' ? `<button class="action-btn start" onclick="containerAction('${item.id}', 'start')">▶</button>` : ''}
                         ${item.status === 'running' ? `<button class="action-btn stop" onclick="containerAction('${item.id}', 'stop')">⏹</button>` : ''}
                         <button class="action-btn restart" onclick="containerAction('${item.id}', 'restart')">🔄</button>
+                        <button class="action-btn logs" onclick="showLogs('${item.id}', '${item.name}')">📋</button>
                         <button class="action-btn remove" onclick="containerAction('${item.id}', 'remove')">🗑</button>
                     </div>
                     <div style="text-align:right;">
@@ -139,13 +137,41 @@ function updateList(type) {
                     <div class="item-details">${item.driver} / ${item.scope}</div>
                 </div>
             `;
+        } else if (type === 'stacks') {
+            const runningCount = item.containers.filter(c => c.status === 'running').length;
+            const totalCount = item.containers.length;
+            const allRunning = runningCount === totalCount;
+            const statusClass = allRunning ? 'running' : (runningCount > 0 ? 'paused' : 'stopped');
+            
+            let containerDots = item.containers.map(c => 
+                `<div class="stack-dot" style="background: var(--${c.status === 'running' ? 'success' : 'error'})"></div>`
+            ).join('');
+
+            div.innerHTML = `
+                <div class="info">
+                    <div class="dot ${statusClass}"></div>
+                    <div>
+                        <div class="item-name">${item.name}</div>
+                        <div class="stack-containers">${containerDots}</div>
+                    </div>
+                </div>
+                <div class="item-meta">
+                    <div class="actions">
+                        <button class="action-btn start" onclick="stackAction('${item.name}', 'start')">▶</button>
+                        <button class="action-btn stop" onclick="stackAction('${item.name}', 'stop')">⏹</button>
+                        <button class="action-btn restart" onclick="stackAction('${item.name}', 'restart')">🔄</button>
+                        <button class="action-btn remove" onclick="stackAction('${item.name}', 'remove')">🗑</button>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="item-details">${runningCount}/${totalCount} running</div>
+                    </div>
+                </div>
+            `;
         }
 
         list.appendChild(div);
     });
 }
-
-// ============ AKCJE ============
 
 async function containerAction(id, action) {
     if (action === 'remove' && !confirm('Czy na pewno usunąć kontener?')) return;
@@ -195,7 +221,70 @@ async function volumeRemove(name) {
     }
 }
 
-// ============ MODAL TWORZENIA ============
+async function stackAction(name, action) {
+    if (action === 'remove' && !confirm('Czy na pewno usunąć stack?')) return;
+    try {
+        showToast(`Wykonywanie ${action}...`, 'success');
+        const res = await fetch(`/stack/${name}/${action}`, { method: 'POST' });
+        const data = await res.json();
+        showToast(data.message, res.ok ? 'success' : 'error');
+        refreshData();
+    } catch (err) {
+        showToast('Błąd: ' + err, 'error');
+    }
+}
+
+async function createStack() {
+    const name = document.getElementById('stack-name').value.trim();
+    const compose = document.getElementById('stack-compose').value.trim();
+
+    if (!name || !compose) {
+        showToast('Podaj nazwę i konfigurację!', 'error');
+        return;
+    }
+
+    try {
+        showToast('Tworzenie stacka...', 'success');
+        const res = await fetch('/stack/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, compose })
+        });
+        const data = await res.json();
+        showToast(data.message, res.ok ? 'success' : 'error');
+        if (res.ok) {
+            closeModal('stack-modal');
+            document.getElementById('stack-name').value = '';
+            document.getElementById('stack-compose').value = '';
+            refreshData();
+        }
+    } catch (err) {
+        showToast('Błąd: ' + err, 'error');
+    }
+}
+
+async function showLogs(containerId, containerName) {
+    currentLogsContainer = containerId;
+    document.getElementById('logs-title').innerText = `📋 Logi: ${containerName}`;
+    document.getElementById('logs-content').innerText = 'Ładowanie...';
+    document.getElementById('logs-modal').classList.add('visible');
+    await refreshLogs();
+}
+
+async function refreshLogs() {
+    if (!currentLogsContainer) return;
+    try {
+        const res = await fetch(`/container/${currentLogsContainer}/logs`);
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('logs-content').innerText = data.logs || 'Brak logów';
+        } else {
+            document.getElementById('logs-content').innerText = 'Błąd: ' + data.message;
+        }
+    } catch (err) {
+        document.getElementById('logs-content').innerText = 'Błąd: ' + err;
+    }
+}
 
 function openCreateModal() {
     if (activeTab === 'containers') {
@@ -212,14 +301,16 @@ function openCreateModal() {
         document.getElementById('driver-group').style.display = 'none';
         document.getElementById('simple-name').value = '';
         document.getElementById('simple-modal').classList.add('visible');
+    } else if (activeTab === 'stacks') {
+        document.getElementById('stack-modal').classList.add('visible');
     }
 }
 
 function closeModal(id) {
     document.getElementById(id).classList.remove('visible');
+    if (id === 'logs-modal') currentLogsContainer = null;
 }
 
-// Tworzenie kontenera
 async function createContainer() {
     const image = document.getElementById('c-image').value.trim();
     const name = document.getElementById('c-name').value.trim();
@@ -234,16 +325,10 @@ async function createContainer() {
         return;
     }
 
-    const body = {
-        image: image,
-        name: name || null,
-        restart_policy: restart,
-        network: network || null
-    };
+    const body = { image, name: name || null, restart_policy: restart, network: network || null };
 
     if (portHost && portContainer) {
-        body.ports = {};
-        body.ports[`${portContainer}/tcp`] = parseInt(portHost);
+        body.ports = { [`${portContainer}/tcp`]: parseInt(portHost) };
     }
 
     if (envRaw) {
@@ -266,7 +351,6 @@ async function createContainer() {
     }
 }
 
-// Tworzenie sieci/volume
 async function confirmSimpleCreate() {
     const name = document.getElementById('simple-name').value.trim();
     if (!name) {
@@ -276,9 +360,8 @@ async function confirmSimpleCreate() {
 
     let url, body;
     if (activeTab === 'networks') {
-        const driver = document.getElementById('simple-driver').value;
         url = '/network/create';
-        body = { name, driver };
+        body = { name, driver: document.getElementById('simple-driver').value };
     } else if (activeTab === 'volumes') {
         url = '/volume/create';
         body = { name };
@@ -299,7 +382,6 @@ async function confirmSimpleCreate() {
     }
 }
 
-// Pull image
 async function pullImage() {
     const image = document.getElementById('pull-image').value.trim();
     if (!image) {
@@ -323,11 +405,7 @@ async function pullImage() {
     }
 }
 
-// ============ TABS ============
-
 function toggleTab(type) {
-    if (type === 'stacks') return;
-
     const section = document.getElementById('details-section');
     const tabs = document.querySelectorAll('.tab');
 
@@ -338,14 +416,10 @@ function toggleTab(type) {
     } else {
         activeTab = type;
         section.classList.add('visible');
-        tabs.forEach(t => {
-            t.classList.toggle('active', t.dataset.type === type);
-        });
+        tabs.forEach(t => t.classList.toggle('active', t.dataset.type === type));
         updateList(type);
     }
 }
-
-// ============ TOAST ============
 
 function showToast(message, type = 'success') {
     const toast = document.getElementById('toast');
@@ -354,32 +428,23 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.classList.remove('visible'), 3000);
 }
 
-// ============ LOGOUT ============
-
 function logout() {
     window.location.href = '/logout';
 }
 
-// ============ UPDATE CHECKER ============
-
 async function checkForUpdate() {
     try {
-        const currentVersion = "1.0.0";
         const res = await fetch('https://api.github.com/repos/TobiMessi/orbit/releases/latest');
         if (!res.ok) return;
-
         const data = await res.json();
         const latestVersion = data.tag_name.replace('v', '');
-
-        if (latestVersion !== currentVersion) {
+        if (latestVersion !== "1.1.0") {
             document.getElementById('update-banner').classList.add('visible');
         }
     } catch (err) {
         console.log('Update check failed:', err);
     }
 }
-
-// ============ INIT ============
 
 document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => toggleTab(tab.dataset.type));
