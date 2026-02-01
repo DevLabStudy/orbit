@@ -1,3 +1,5 @@
 *.env
 secrets.txt
 config.local
+orbit.db
+*.db
