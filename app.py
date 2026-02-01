@@ -1,16 +1,22 @@
 import docker
 import sqlite3
 import os
+import yaml
+import subprocess
 from flask import Flask, jsonify, render_template, request, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'orbit_secret_key_2026'
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 GITHUB_REPO = "TobiMessi/orbit"
 
 DB_PATH = '/app/orbit.db'
+STACKS_PATH = '/app/stacks'
+
+# Utwórz folder na stacki
+os.makedirs(STACKS_PATH, exist_ok=True)
 
 
 # ============ BAZA DANYCH ============
@@ -26,71 +32,15 @@ def init_db():
     db = conn.cursor()
 
     db.execute('''CREATE TABLE IF NOT EXISTS users
-                  (
-                      id
-                      INTEGER
-                      PRIMARY
-                      KEY
-                      AUTOINCREMENT,
-                      email
-                      TEXT
-                      UNIQUE,
-                      password
-                      TEXT
-                  )''')
+                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   email TEXT UNIQUE,
+                   password TEXT)''')
 
     db.execute('''CREATE TABLE IF NOT EXISTS hosts
-                  (
-                      id
-                      INTEGER
-                      PRIMARY
-                      KEY
-                      AUTOINCREMENT,
-                      name
-                      TEXT,
-                      url
-                      TEXT,
-                      is_local
-                      INTEGER
-                      DEFAULT
-                      0
-                  )''')
-
-    db.execute('''CREATE TABLE IF NOT EXISTS notifications
-                  (
-                      id
-                      INTEGER
-                      PRIMARY
-                      KEY
-                      AUTOINCREMENT,
-                      type
-                      TEXT,
-                      config
-                      TEXT,
-                      enabled
-                      INTEGER
-                      DEFAULT
-                      1
-                  )''')
-
-    db.execute('''CREATE TABLE IF NOT EXISTS alerts
-                  (
-                      id
-                      INTEGER
-                      PRIMARY
-                      KEY
-                      AUTOINCREMENT,
-                      host_id
-                      INTEGER,
-                      container_name
-                      TEXT,
-                      message
-                      TEXT,
-                      timestamp
-                      DATETIME
-                      DEFAULT
-                      CURRENT_TIMESTAMP
-                  )''')
+                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   name TEXT,
+                   url TEXT,
+                   is_local INTEGER DEFAULT 0)''')
 
     db.execute("SELECT id FROM hosts WHERE is_local = 1")
     if not db.fetchone():
@@ -124,6 +74,41 @@ def get_docker_client(host_id=None):
 client = get_docker_client()
 if client:
     print("✅ Połączono z Docker Engine")
+
+
+# ============ STACKS HELPER ============
+
+def get_stacks():
+    """Pobiera listę stacków na podstawie docker-compose projektów"""
+    stacks = {}
+
+    try:
+        containers = client.containers.list(all=True)
+
+        for c in containers:
+            labels = c.labels
+            project = labels.get('com.docker.compose.project')
+
+            if project:
+                if project not in stacks:
+                    stacks[project] = {
+                        'name': project,
+                        'containers': [],
+                        'path': labels.get('com.docker.compose.project.working_dir', '')
+                    }
+
+                c.reload()
+                state = c.attrs['State']
+                status = 'running' if state.get('Running') else 'stopped'
+
+                stacks[project]['containers'].append({
+                    'name': c.name,
+                    'status': status
+                })
+    except Exception as e:
+        print(f"Błąd pobierania stacków: {e}")
+
+    return list(stacks.values())
 
 
 # ============ ROUTING - AUTH ============
@@ -208,6 +193,7 @@ def status():
         all_images = client.images.list()
         all_volumes = client.volumes.list()
         all_networks = client.networks.list()
+        all_stacks = get_stacks()
 
         containers = []
         for c in all_containers:
@@ -262,7 +248,7 @@ def status():
             "counts": {
                 "containers": len(all_containers),
                 "images": len(all_images),
-                "stacks": 0,
+                "stacks": len(all_stacks),
                 "volumes": len(all_volumes),
                 "networks": len(all_networks)
             },
@@ -270,7 +256,7 @@ def status():
             "images": images,
             "volumes": volumes,
             "networks": networks,
-            "alerts_count": sum(1 for c in containers if c['status'] != 'running')
+            "stacks": all_stacks
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -323,6 +309,18 @@ def container_remove(container_id):
         name = container.name
         container.remove(force=True)
         return jsonify({"status": "ok", "message": f"Kontener {name} usunięty"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/container/<container_id>/logs', methods=['GET'])
+def container_logs(container_id):
+    if 'user' not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        container = client.containers.get(container_id)
+        logs = container.logs(tail=100, timestamps=True).decode('utf-8', errors='ignore')
+        return jsonify({"status": "ok", "logs": logs})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -479,65 +477,122 @@ def volume_remove(volume_name):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-# ============ HOSTY ============
+# ============ STACKS ============
 
-@app.route('/hosts')
-def get_hosts():
-    if 'user' not in session:
-        return jsonify({"error": "unauthorized"}), 401
-
-    conn = get_db()
-    hosts = conn.execute("SELECT * FROM hosts").fetchall()
-    conn.close()
-
-    return jsonify([dict(h) for h in hosts])
-
-
-@app.route('/host/add', methods=['POST'])
-def add_host():
+@app.route('/stack/create', methods=['POST'])
+def stack_create():
     if 'user' not in session:
         return jsonify({"error": "unauthorized"}), 401
 
     try:
         data = request.json
         name = data.get('name')
-        url = data.get('url')
+        compose_content = data.get('compose')
 
-        if not name or not url:
-            return jsonify({"status": "error", "message": "Nazwa i URL są wymagane"}), 400
+        if not name or not compose_content:
+            return jsonify({"status": "error", "message": "Nazwa i konfiguracja są wymagane"}), 400
 
+        # Waliduj YAML
         try:
-            test_client = docker.DockerClient(base_url=url)
-            test_client.ping()
-        except Exception as e:
-            return jsonify({"status": "error", "message": f"Nie można połączyć: {e}"}), 400
+            yaml.safe_load(compose_content)
+        except yaml.YAMLError as e:
+            return jsonify({"status": "error", "message": f"Nieprawidłowy YAML: {e}"}), 400
 
-        conn = get_db()
-        conn.execute("INSERT INTO hosts (name, url, is_local) VALUES (?, ?, 0)", (name, url))
-        conn.commit()
-        conn.close()
+        # Utwórz folder stacka
+        stack_dir = os.path.join(STACKS_PATH, name)
+        os.makedirs(stack_dir, exist_ok=True)
 
-        return jsonify({"status": "ok", "message": f"Host {name} dodany"})
+        # Zapisz docker-compose.yml
+        compose_file = os.path.join(stack_dir, 'docker-compose.yml')
+        with open(compose_file, 'w') as f:
+            f.write(compose_content)
+
+        # Uruchom docker-compose
+        result = subprocess.run(
+            ['docker', 'compose', '-p', name, '-f', compose_file, 'up', '-d'],
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode != 0:
+            return jsonify({"status": "error", "message": result.stderr}), 500
+
+        return jsonify({"status": "ok", "message": f"Stack {name} uruchomiony"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-@app.route('/host/<int:host_id>/remove', methods=['POST'])
-def remove_host(host_id):
+@app.route('/stack/<name>/start', methods=['POST'])
+def stack_start(name):
     if 'user' not in session:
         return jsonify({"error": "unauthorized"}), 401
-
     try:
-        conn = get_db()
-        host = conn.execute("SELECT is_local FROM hosts WHERE id = ?", (host_id,)).fetchone()
-        if host and host['is_local']:
-            return jsonify({"status": "error", "message": "Nie można usunąć lokalnego hosta"}), 400
+        stack_dir = os.path.join(STACKS_PATH, name)
+        compose_file = os.path.join(stack_dir, 'docker-compose.yml')
 
-        conn.execute("DELETE FROM hosts WHERE id = ?", (host_id,))
-        conn.commit()
-        conn.close()
+        if os.path.exists(compose_file):
+            result = subprocess.run(
+                ['docker', 'compose', '-p', name, '-f', compose_file, 'start'],
+                capture_output=True, text=True
+            )
+        else:
+            # Stack nie ma pliku compose - uruchom kontenery z projektu
+            containers = client.containers.list(all=True, filters={'label': f'com.docker.compose.project={name}'})
+            for c in containers:
+                c.start()
 
-        return jsonify({"status": "ok", "message": "Host usunięty"})
+        return jsonify({"status": "ok", "message": f"Stack {name} uruchomiony"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/stack/<name>/stop', methods=['POST'])
+def stack_stop(name):
+    if 'user' not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        containers = client.containers.list(filters={'label': f'com.docker.compose.project={name}'})
+        for c in containers:
+            c.stop()
+        return jsonify({"status": "ok", "message": f"Stack {name} zatrzymany"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/stack/<name>/restart', methods=['POST'])
+def stack_restart(name):
+    if 'user' not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        containers = client.containers.list(filters={'label': f'com.docker.compose.project={name}'})
+        for c in containers:
+            c.restart()
+        return jsonify({"status": "ok", "message": f"Stack {name} zrestartowany"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/stack/<name>/remove', methods=['POST'])
+def stack_remove(name):
+    if 'user' not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        stack_dir = os.path.join(STACKS_PATH, name)
+        compose_file = os.path.join(stack_dir, 'docker-compose.yml')
+
+        if os.path.exists(compose_file):
+            subprocess.run(
+                ['docker', 'compose', '-p', name, '-f', compose_file, 'down', '-v'],
+                capture_output=True, text=True
+            )
+            os.remove(compose_file)
+            os.rmdir(stack_dir)
+        else:
+            containers = client.containers.list(all=True, filters={'label': f'com.docker.compose.project={name}'})
+            for c in containers:
+                c.remove(force=True)
+
+        return jsonify({"status": "ok", "message": f"Stack {name} usunięty"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

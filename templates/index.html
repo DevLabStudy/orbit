@@ -15,9 +15,116 @@
             background-color: var(--bg); color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             padding: 0; margin: 0; line-height: 1.5;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        /* UPDATE BANNER */
+        /* ============ SPACE BACKGROUND ============ */
+        .space-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            background: radial-gradient(ellipse at bottom, #1a1a2e 0%, #0d1117 100%);
+        }
+
+        .stars {
+            position: absolute;
+            width: 100%; height: 100%;
+            background-image:
+                radial-gradient(2px 2px at 20px 30px, #eee, transparent),
+                radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+                radial-gradient(1px 1px at 90px 40px, #fff, transparent),
+                radial-gradient(2px 2px at 160px 120px, rgba(255,255,255,0.9), transparent),
+                radial-gradient(1px 1px at 230px 80px, #fff, transparent),
+                radial-gradient(2px 2px at 300px 150px, rgba(255,255,255,0.7), transparent),
+                radial-gradient(1px 1px at 370px 200px, #fff, transparent),
+                radial-gradient(2px 2px at 450px 50px, rgba(255,255,255,0.8), transparent);
+            background-size: 500px 300px;
+            animation: twinkle 5s ease-in-out infinite;
+        }
+
+        .stars2 {
+            position: absolute;
+            width: 100%; height: 100%;
+            background-image:
+                radial-gradient(1px 1px at 50px 100px, #fff, transparent),
+                radial-gradient(2px 2px at 100px 200px, rgba(255,255,255,0.6), transparent),
+                radial-gradient(1px 1px at 200px 50px, #fff, transparent),
+                radial-gradient(1px 1px at 280px 180px, rgba(255,255,255,0.8), transparent),
+                radial-gradient(2px 2px at 400px 100px, #fff, transparent),
+                radial-gradient(1px 1px at 480px 250px, rgba(255,255,255,0.7), transparent);
+            background-size: 550px 350px;
+            animation: twinkle 7s ease-in-out infinite reverse;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Planets */
+        .planet {
+            position: absolute;
+            border-radius: 50%;
+        }
+
+        .planet1 {
+            width: 80px; height: 80px;
+            background: radial-gradient(circle at 30% 30%, #58a6ff, #1a4b8c);
+            top: 15%; right: 10%;
+            box-shadow: 0 0 40px rgba(88, 166, 255, 0.3);
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .planet2 {
+            width: 40px; height: 40px;
+            background: radial-gradient(circle at 30% 30%, #f85149, #8b2020);
+            top: 60%; right: 5%;
+            box-shadow: 0 0 20px rgba(248, 81, 73, 0.3);
+            animation: float 15s ease-in-out infinite reverse;
+        }
+
+        .planet3 {
+            width: 25px; height: 25px;
+            background: radial-gradient(circle at 30% 30%, #3fb950, #1a5c28);
+            top: 40%; left: 5%;
+            box-shadow: 0 0 15px rgba(63, 185, 80, 0.3);
+            animation: float 25s ease-in-out infinite;
+        }
+
+        /* Orbit rings */
+        .orbit-ring {
+            position: absolute;
+            border: 1px solid rgba(88, 166, 255, 0.1);
+            border-radius: 50%;
+            animation: rotate 60s linear infinite;
+        }
+
+        .orbit1 {
+            width: 300px; height: 300px;
+            top: 10%; right: -50px;
+        }
+
+        .orbit2 {
+            width: 200px; height: 200px;
+            bottom: 20%; left: -30px;
+            animation-duration: 45s;
+            animation-direction: reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* ============ UPDATE BANNER ============ */
         .update-banner {
             display: none;
             background: linear-gradient(90deg, #238636, #2ea043);
@@ -35,7 +142,22 @@
         }
         .update-banner a:hover { opacity: 0.9; }
 
-        .main-content { padding: 30px; }
+        /* GitHub Banner */
+        .github-banner {
+            background: rgba(88, 166, 255, 0.1);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 20px;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        .github-banner a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .github-banner a:hover { text-decoration: underline; }
+
+        .main-content { padding: 30px; position: relative; z-index: 1; }
 
         .header {
             display: flex; justify-content: space-between; align-items: center;
@@ -46,24 +168,26 @@
 
         .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; }
         .tab {
-            background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+            background: rgba(22, 27, 34, 0.9); border: 1px solid var(--border); border-radius: 6px;
             padding: 20px; cursor: pointer; transition: all 0.2s;
+            backdrop-filter: blur(10px);
         }
         .tab:hover { border-color: #8b949e; }
-        .tab.active { border-color: var(--accent); background: #21262d; }
+        .tab.active { border-color: var(--accent); background: rgba(33, 38, 45, 0.9); }
         .tab.disabled { opacity: 0.5; cursor: not-allowed; }
         .tab.disabled:hover { border-color: var(--border); }
         .tab-label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; }
         .count { display: block; font-size: 1.8rem; font-weight: 600; margin-top: 5px; }
 
         #details-section {
-            margin-top: 25px; background: var(--card); border: 1px solid var(--border);
+            margin-top: 25px; background: rgba(22, 27, 34, 0.95); border: 1px solid var(--border);
             border-radius: 6px; display: none; overflow: hidden;
+            backdrop-filter: blur(10px);
         }
         #details-section.visible { display: block; }
 
         .section-header {
-            padding: 15px 20px; background: #21262d; border-bottom: 1px solid var(--border);
+            padding: 15px 20px; background: rgba(33, 38, 45, 0.9); border-bottom: 1px solid var(--border);
             display: flex; justify-content: space-between; align-items: center;
         }
         .section-title { font-size: 0.9rem; font-weight: 600; color: #f0f6fc; }
@@ -80,7 +204,7 @@
             padding: 12px 20px; border-bottom: 1px solid var(--border);
         }
         .list-item:last-child { border-bottom: none; }
-        .list-item:hover { background: #21262d; }
+        .list-item:hover { background: rgba(33, 38, 45, 0.5); }
 
         .info { display: flex; align-items: center; gap: 12px; }
         .dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -107,6 +231,7 @@
         .action-btn.stop { color: var(--warning); border-color: var(--warning); }
         .action-btn.restart { color: var(--accent); border-color: var(--accent); }
         .action-btn.remove { color: var(--error); border-color: var(--error); }
+        .action-btn.logs { color: #a371f7; border-color: #a371f7; }
 
         button.logout {
             background: transparent; color: var(--error); border: 1px solid var(--border);
@@ -114,6 +239,14 @@
         }
 
         .empty-state { padding: 40px; text-align: center; color: #6e7681; }
+
+        /* Stack status */
+        .stack-containers {
+            display: flex; gap: 4px; margin-top: 5px;
+        }
+        .stack-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+        }
 
         /* Modal */
         .modal {
@@ -125,15 +258,19 @@
             background: var(--card); border: 1px solid var(--border); border-radius: 8px;
             padding: 25px; width: 450px; max-height: 80vh; overflow-y: auto;
         }
+        .modal-content.wide { width: 700px; }
         .modal-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; }
 
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-size: 0.8rem; color: #8b949e; margin-bottom: 5px; }
-        .form-group input, .form-group select {
+        .form-group input, .form-group select, .form-group textarea {
             width: 100%; padding: 10px; background: var(--bg);
             border: 1px solid var(--border); color: var(--text); border-radius: 4px;
         }
-        .form-group input:focus, .form-group select:focus {
+        .form-group textarea {
+            font-family: monospace; font-size: 0.85rem; min-height: 200px; resize: vertical;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline: none; border-color: var(--accent);
         }
         .form-group small { color: #6e7681; font-size: 0.7rem; }
@@ -141,6 +278,21 @@
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
         .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+        /* Logs modal */
+        .logs-container {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #0f0;
+        }
 
         /* Toast */
         .toast {
@@ -156,10 +308,26 @@
 </head>
 <body>
 
+    <!-- SPACE BACKGROUND -->
+    <div class="space-bg">
+        <div class="stars"></div>
+        <div class="stars2"></div>
+        <div class="planet planet1"></div>
+        <div class="planet planet2"></div>
+        <div class="planet planet3"></div>
+        <div class="orbit-ring orbit1"></div>
+        <div class="orbit-ring orbit2"></div>
+    </div>
+
     <!-- UPDATE BANNER -->
     <div class="update-banner" id="update-banner">
         🎉 Nowa wersja dostępna!
         <a href="https://github.com/TobiMessi/orbit/releases/latest" target="_blank">Pobierz teraz →</a>
+    </div>
+
+    <!-- GITHUB BANNER -->
+    <div class="github-banner">
+        ⭐ Sprawdź projekt na GitHub: <a href="https://github.com/TobiMessi/orbit" target="_blank">TobiMessi/orbit</a>
     </div>
 
     <div class="main-content">
@@ -185,9 +353,9 @@
                 <span class="tab-label">Networks</span>
                 <span class="count" id="count-networks">0</span>
             </div>
-            <div class="tab disabled" data-type="stacks">
+            <div class="tab" data-type="stacks">
                 <span class="tab-label">Stacks</span>
-                <span class="count" id="count-stacks" style="font-size: 0.8rem; color: #d29922;">coming soon</span>
+                <span class="count" id="count-stacks">0</span>
             </div>
         </div>
 
@@ -295,6 +463,45 @@
             <div class="modal-buttons">
                 <button class="btn btn-secondary" onclick="closeModal('pull-modal')">Anuluj</button>
                 <button class="btn" onclick="pullImage()">Pobierz</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal tworzenia stacka -->
+    <div class="modal" id="stack-modal">
+        <div class="modal-content wide">
+            <div class="modal-title">📦 Utwórz Stack (Docker Compose)</div>
+
+            <div class="form-group">
+                <label>Nazwa stacka *</label>
+                <input type="text" id="stack-name" placeholder="np. my-app">
+            </div>
+
+            <div class="form-group">
+                <label>Docker Compose (YAML) *</label>
+                <textarea id="stack-compose" placeholder="version: '3'
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - '8080:80'"></textarea>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('stack-modal')">Anuluj</button>
+                <button class="btn" onclick="createStack()">Uruchom Stack</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal logów -->
+    <div class="modal" id="logs-modal">
+        <div class="modal-content wide">
+            <div class="modal-title" id="logs-title">📋 Logi kontenera</div>
+            <div class="logs-container" id="logs-content">Ładowanie...</div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal('logs-modal')">Zamknij</button>
+                <button class="btn" onclick="refreshLogs()">🔄 Odśwież</button>
             </div>
         </div>
     </div>

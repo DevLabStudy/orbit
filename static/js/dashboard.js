@@ -1,5 +1,6 @@
 let cachedData = null;
 let activeTab = null;
+let currentLogsContainer = null;
 
 // ============ ODŚWIEŻANIE DANYCH ============
 
@@ -15,7 +16,7 @@ async function refreshData() {
         document.getElementById('count-images').innerText = data.counts.images;
         document.getElementById('count-volumes').innerText = data.counts.volumes;
         document.getElementById('count-networks').innerText = data.counts.networks;
-        document.getElementById('count-stacks').innerText = data.counts.stacks;
+        document.getElementById('count-stacks').innerText = data.counts.stacks || 0;
 
         updateNetworkSelect();
 
@@ -56,7 +57,8 @@ function updateList(type) {
     };
     header.innerText = titles[type] || 'Lista';
 
-    addBtn.style.display = ['containers', 'volumes', 'networks', 'images'].includes(type) ? 'block' : 'none';
+    // Pokaż przycisk dodawania dla wszystkich typów
+    addBtn.style.display = ['containers', 'volumes', 'networks', 'images', 'stacks'].includes(type) ? 'block' : 'none';
 
     const items = cachedData[type] || [];
 
@@ -83,6 +85,7 @@ function updateList(type) {
                         ${item.status !== 'running' ? `<button class="action-btn start" onclick="containerAction('${item.id}', 'start')">▶</button>` : ''}
                         ${item.status === 'running' ? `<button class="action-btn stop" onclick="containerAction('${item.id}', 'stop')">⏹</button>` : ''}
                         <button class="action-btn restart" onclick="containerAction('${item.id}', 'restart')">🔄</button>
+                        <button class="action-btn logs" onclick="showLogs('${item.id}', '${item.name}')">📋</button>
                         <button class="action-btn remove" onclick="containerAction('${item.id}', 'remove')">🗑</button>
                     </div>
                     <div style="text-align:right;">
@@ -139,13 +142,44 @@ function updateList(type) {
                     <div class="item-details">${item.driver} / ${item.scope}</div>
                 </div>
             `;
+        } else if (type === 'stacks') {
+            const runningCount = item.containers.filter(c => c.status === 'running').length;
+            const totalCount = item.containers.length;
+            const allRunning = runningCount === totalCount;
+            const statusClass = allRunning ? 'running' : (runningCount > 0 ? 'paused' : 'stopped');
+
+            let containerDots = item.containers.map(c =>
+                `<div class="stack-dot" style="background: var(--${c.status === 'running' ? 'success' : 'error'})"></div>`
+            ).join('');
+
+            div.innerHTML = `
+                <div class="info">
+                    <div class="dot ${statusClass}"></div>
+                    <div>
+                        <div class="item-name">${item.name}</div>
+                        <div class="stack-containers">${containerDots}</div>
+                    </div>
+                </div>
+                <div class="item-meta">
+                    <div class="actions">
+                        <button class="action-btn start" onclick="stackAction('${item.name}', 'start')">▶</button>
+                        <button class="action-btn stop" onclick="stackAction('${item.name}', 'stop')">⏹</button>
+                        <button class="action-btn restart" onclick="stackAction('${item.name}', 'restart')">🔄</button>
+                        <button class="action-btn remove" onclick="stackAction('${item.name}', 'remove')">🗑</button>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="item-details">${runningCount}/${totalCount} running</div>
+                        <div class="item-id">${item.path || ''}</div>
+                    </div>
+                </div>
+            `;
         }
 
         list.appendChild(div);
     });
 }
 
-// ============ AKCJE ============
+// ============ AKCJE KONTENERÓW ============
 
 async function containerAction(id, action) {
     if (action === 'remove' && !confirm('Czy na pewno usunąć kontener?')) return;
@@ -195,6 +229,75 @@ async function volumeRemove(name) {
     }
 }
 
+// ============ AKCJE STACKÓW ============
+
+async function stackAction(name, action) {
+    if (action === 'remove' && !confirm('Czy na pewno usunąć stack i wszystkie jego kontenery?')) return;
+    try {
+        showToast(`${action === 'remove' ? 'Usuwanie' : 'Wykonywanie'} stacka...`, 'success');
+        const res = await fetch(`/stack/${name}/${action}`, { method: 'POST' });
+        const data = await res.json();
+        showToast(data.message, res.ok ? 'success' : 'error');
+        refreshData();
+    } catch (err) {
+        showToast('Błąd: ' + err, 'error');
+    }
+}
+
+async function createStack() {
+    const name = document.getElementById('stack-name').value.trim();
+    const compose = document.getElementById('stack-compose').value.trim();
+
+    if (!name || !compose) {
+        showToast('Podaj nazwę i konfigurację!', 'error');
+        return;
+    }
+
+    try {
+        showToast('Tworzenie stacka...', 'success');
+        const res = await fetch('/stack/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, compose })
+        });
+        const data = await res.json();
+        showToast(data.message, res.ok ? 'success' : 'error');
+        if (res.ok) {
+            closeModal('stack-modal');
+            document.getElementById('stack-name').value = '';
+            document.getElementById('stack-compose').value = '';
+            refreshData();
+        }
+    } catch (err) {
+        showToast('Błąd: ' + err, 'error');
+    }
+}
+
+// ============ LOGI KONTENERÓW ============
+
+async function showLogs(containerId, containerName) {
+    currentLogsContainer = containerId;
+    document.getElementById('logs-title').innerText = `📋 Logi: ${containerName}`;
+    document.getElementById('logs-content').innerText = 'Ładowanie...';
+    document.getElementById('logs-modal').classList.add('visible');
+    await refreshLogs();
+}
+
+async function refreshLogs() {
+    if (!currentLogsContainer) return;
+    try {
+        const res = await fetch(`/container/${currentLogsContainer}/logs`);
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('logs-content').innerText = data.logs || 'Brak logów';
+        } else {
+            document.getElementById('logs-content').innerText = 'Błąd: ' + data.message;
+        }
+    } catch (err) {
+        document.getElementById('logs-content').innerText = 'Błąd pobierania logów: ' + err;
+    }
+}
+
 // ============ MODAL TWORZENIA ============
 
 function openCreateModal() {
@@ -212,11 +315,16 @@ function openCreateModal() {
         document.getElementById('driver-group').style.display = 'none';
         document.getElementById('simple-name').value = '';
         document.getElementById('simple-modal').classList.add('visible');
+    } else if (activeTab === 'stacks') {
+        document.getElementById('stack-modal').classList.add('visible');
     }
 }
 
 function closeModal(id) {
     document.getElementById(id).classList.remove('visible');
+    if (id === 'logs-modal') {
+        currentLogsContainer = null;
+    }
 }
 
 // Tworzenie kontenera
@@ -326,8 +434,6 @@ async function pullImage() {
 // ============ TABS ============
 
 function toggleTab(type) {
-    if (type === 'stacks') return;
-
     const section = document.getElementById('details-section');
     const tabs = document.querySelectorAll('.tab');
 
