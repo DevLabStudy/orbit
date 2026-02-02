@@ -43,26 +43,29 @@
 ```bash
 docker run -d \
   --name orbit \
+  --user root \
   -p 5001:5000 \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v orbit-data:/app \
+  -v orbit-data:/app/data \
   --restart unless-stopped \
-  tobimessi2010/orbit-control:latest
+  tobimessi2010/orbit-control:v4
 ```
 
 ### Docker Compose
 
 ```yaml
 version: '3.8'
+
 services:
   orbit:
-    image: tobimessi2010/orbit-control:latest
+    image: tobimessi2010/orbit-control:v4
     container_name: orbit
+    user: root
     ports:
       - "5001:5000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - orbit-data:/app
+      - orbit-data:/app/data
     restart: unless-stopped
 
 volumes:
