@@ -1,16 +1,13 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
+
+# Instalacja zależności systemowych (czasem potrzebne dla PyYAML)
+RUN apt-get update && apt-get install -y gcc python3-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Najpierw instalujemy biblioteki (to się rzadko zmienia)
-RUN pip install --no-cache-dir flask docker werkzeug
+# Instalujemy biblioteki bezpośrednio, żeby nie było wątpliwości
+RUN pip install --no-cache-dir flask docker PyYAML psutil werkzeug
 
-# Dopiero potem kopiujemy kod (to zmieniasz często)
 COPY . .
-
-EXPOSE 5000
-
-# Optymalizacja: wyłączamy buforowanie logów, żeby widzieć błędy w konsoli od razu
-ENV PYTHONUNBUFFERED=1
 
 CMD ["python", "app.py"]
