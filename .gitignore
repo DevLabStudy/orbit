@@ -2,4 +2,9 @@
 secrets.txt
 config.local
 orbit.db
+# DB/artefakty runtime
+orbit.db
 *.db
+*.sqlite
+__pycache__/
+*.pyc
