@@ -2,6 +2,8 @@ let cachedData = null;
 let activeTab = null;
 let currentLogsContainer = null;
 
+// ============ ODŚWIEŻANIE DANYCH ============
+
 async function refreshData() {
     try {
         const response = await fetch('/status');
@@ -36,6 +38,8 @@ function updateNetworkSelect() {
     });
 }
 
+// ============ WYŚWIETLANIE LISTY ============
+
 function updateList(type) {
     const list = document.getElementById('details-list');
     const header = document.getElementById('details-header');
@@ -53,6 +57,7 @@ function updateList(type) {
     };
     header.innerText = titles[type] || 'Lista';
 
+    // Pokaż przycisk dodawania dla wszystkich typów
     addBtn.style.display = ['containers', 'volumes', 'networks', 'images', 'stacks'].includes(type) ? 'block' : 'none';
 
     const items = cachedData[type] || [];
@@ -142,8 +147,8 @@ function updateList(type) {
             const totalCount = item.containers.length;
             const allRunning = runningCount === totalCount;
             const statusClass = allRunning ? 'running' : (runningCount > 0 ? 'paused' : 'stopped');
-            
-            let containerDots = item.containers.map(c => 
+
+            let containerDots = item.containers.map(c =>
                 `<div class="stack-dot" style="background: var(--${c.status === 'running' ? 'success' : 'error'})"></div>`
             ).join('');
 
@@ -164,6 +169,7 @@ function updateList(type) {
                     </div>
                     <div style="text-align:right;">
                         <div class="item-details">${runningCount}/${totalCount} running</div>
+                        <div class="item-id">${item.path || ''}</div>
                     </div>
                 </div>
             `;
@@ -172,6 +178,8 @@ function updateList(type) {
         list.appendChild(div);
     });
 }
+
+// ============ AKCJE KONTENERÓW ============
 
 async function containerAction(id, action) {
     if (action === 'remove' && !confirm('Czy na pewno usunąć kontener?')) return;
@@ -221,10 +229,12 @@ async function volumeRemove(name) {
     }
 }
 
+// ============ AKCJE STACKÓW ============
+
 async function stackAction(name, action) {
-    if (action === 'remove' && !confirm('Czy na pewno usunąć stack?')) return;
+    if (action === 'remove' && !confirm('Czy na pewno usunąć stack i wszystkie jego kontenery?')) return;
     try {
-        showToast(`Wykonywanie ${action}...`, 'success');
+        showToast(`${action === 'remove' ? 'Usuwanie' : 'Wykonywanie'} stacka...`, 'success');
         const res = await fetch(`/stack/${name}/${action}`, { method: 'POST' });
         const data = await res.json();
         showToast(data.message, res.ok ? 'success' : 'error');
@@ -263,6 +273,8 @@ async function createStack() {
     }
 }
 
+// ============ LOGI KONTENERÓW ============
+
 async function showLogs(containerId, containerName) {
     currentLogsContainer = containerId;
     document.getElementById('logs-title').innerText = `📋 Logi: ${containerName}`;
@@ -282,9 +294,11 @@ async function refreshLogs() {
             document.getElementById('logs-content').innerText = 'Błąd: ' + data.message;
         }
     } catch (err) {
-        document.getElementById('logs-content').innerText = 'Błąd: ' + err;
+        document.getElementById('logs-content').innerText = 'Błąd pobierania logów: ' + err;
     }
 }
+
+// ============ MODAL TWORZENIA ============
 
 function openCreateModal() {
     if (activeTab === 'containers') {
@@ -308,9 +322,12 @@ function openCreateModal() {
 
 function closeModal(id) {
     document.getElementById(id).classList.remove('visible');
-    if (id === 'logs-modal') currentLogsContainer = null;
+    if (id === 'logs-modal') {
+        currentLogsContainer = null;
+    }
 }
 
+// Tworzenie kontenera
 async function createContainer() {
     const image = document.getElementById('c-image').value.trim();
     const name = document.getElementById('c-name').value.trim();
@@ -325,10 +342,16 @@ async function createContainer() {
         return;
     }
 
-    const body = { image, name: name || null, restart_policy: restart, network: network || null };
+    const body = {
+        image: image,
+        name: name || null,
+        restart_policy: restart,
+        network: network || null
+    };
 
     if (portHost && portContainer) {
-        body.ports = { [`${portContainer}/tcp`]: parseInt(portHost) };
+        body.ports = {};
+        body.ports[`${portContainer}/tcp`] = parseInt(portHost);
     }
 
     if (envRaw) {
@@ -351,6 +374,7 @@ async function createContainer() {
     }
 }
 
+// Tworzenie sieci/volume
 async function confirmSimpleCreate() {
     const name = document.getElementById('simple-name').value.trim();
     if (!name) {
@@ -360,8 +384,9 @@ async function confirmSimpleCreate() {
 
     let url, body;
     if (activeTab === 'networks') {
+        const driver = document.getElementById('simple-driver').value;
         url = '/network/create';
-        body = { name, driver: document.getElementById('simple-driver').value };
+        body = { name, driver };
     } else if (activeTab === 'volumes') {
         url = '/volume/create';
         body = { name };
@@ -382,6 +407,7 @@ async function confirmSimpleCreate() {
     }
 }
 
+// Pull image
 async function pullImage() {
     const image = document.getElementById('pull-image').value.trim();
     if (!image) {
@@ -405,6 +431,8 @@ async function pullImage() {
     }
 }
 
+// ============ TABS ============
+
 function toggleTab(type) {
     const section = document.getElementById('details-section');
     const tabs = document.querySelectorAll('.tab');
@@ -416,10 +444,14 @@ function toggleTab(type) {
     } else {
         activeTab = type;
         section.classList.add('visible');
-        tabs.forEach(t => t.classList.toggle('active', t.dataset.type === type));
+        tabs.forEach(t => {
+            t.classList.toggle('active', t.dataset.type === type);
+        });
         updateList(type);
     }
 }
+
+// ============ TOAST ============
 
 function showToast(message, type = 'success') {
     const toast = document.getElementById('toast');
@@ -428,23 +460,32 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.classList.remove('visible'), 3000);
 }
 
+// ============ LOGOUT ============
+
 function logout() {
     window.location.href = '/logout';
 }
 
+// ============ UPDATE CHECKER ============
+
 async function checkForUpdate() {
     try {
+        const currentVersion = "1.0.0";
         const res = await fetch('https://api.github.com/repos/TobiMessi/orbit/releases/latest');
         if (!res.ok) return;
+
         const data = await res.json();
         const latestVersion = data.tag_name.replace('v', '');
-        if (latestVersion !== "1.1.0") {
+
+        if (latestVersion !== currentVersion) {
             document.getElementById('update-banner').classList.add('visible');
         }
     } catch (err) {
         console.log('Update check failed:', err);
     }
 }
+
+// ============ INIT ============
 
 document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => toggleTab(tab.dataset.type));

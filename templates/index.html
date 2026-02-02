@@ -32,7 +32,7 @@
         .stars {
             position: absolute;
             width: 100%; height: 100%;
-            background-image: 
+            background-image:
                 radial-gradient(2px 2px at 20px 30px, #eee, transparent),
                 radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
                 radial-gradient(1px 1px at 90px 40px, #fff, transparent),
@@ -48,7 +48,7 @@
         .stars2 {
             position: absolute;
             width: 100%; height: 100%;
-            background-image: 
+            background-image:
                 radial-gradient(1px 1px at 50px 100px, #fff, transparent),
                 radial-gradient(2px 2px at 100px 200px, rgba(255,255,255,0.6), transparent),
                 radial-gradient(1px 1px at 200px 50px, #fff, transparent),
@@ -64,6 +64,7 @@
             50% { opacity: 0.5; }
         }
 
+        /* Planets */
         .planet {
             position: absolute;
             border-radius: 50%;
@@ -93,6 +94,7 @@
             animation: float 25s ease-in-out infinite;
         }
 
+        /* Orbit rings */
         .orbit-ring {
             position: absolute;
             border: 1px solid rgba(88, 166, 255, 0.1);
@@ -100,8 +102,17 @@
             animation: rotate 60s linear infinite;
         }
 
-        .orbit1 { width: 300px; height: 300px; top: 10%; right: -50px; }
-        .orbit2 { width: 200px; height: 200px; bottom: 20%; left: -30px; animation-duration: 45s; animation-direction: reverse; }
+        .orbit1 {
+            width: 300px; height: 300px;
+            top: 10%; right: -50px;
+        }
+
+        .orbit2 {
+            width: 200px; height: 200px;
+            bottom: 20%; left: -30px;
+            animation-duration: 45s;
+            animation-direction: reverse;
+        }
 
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
@@ -113,6 +124,7 @@
             to { transform: rotate(360deg); }
         }
 
+        /* ============ UPDATE BANNER ============ */
         .update-banner {
             display: none;
             background: linear-gradient(90deg, #238636, #2ea043);
@@ -122,8 +134,15 @@
             font-size: 0.85rem;
         }
         .update-banner.visible { display: block; }
-        .update-banner a { color: white; font-weight: 600; margin-left: 10px; text-decoration: underline; }
+        .update-banner a {
+            color: white;
+            font-weight: 600;
+            margin-left: 10px;
+            text-decoration: underline;
+        }
+        .update-banner a:hover { opacity: 0.9; }
 
+        /* GitHub Banner */
         .github-banner {
             background: rgba(88, 166, 255, 0.1);
             border-bottom: 1px solid var(--border);
@@ -131,7 +150,11 @@
             text-align: center;
             font-size: 0.8rem;
         }
-        .github-banner a { color: var(--accent); text-decoration: none; font-weight: 500; }
+        .github-banner a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+        }
         .github-banner a:hover { text-decoration: underline; }
 
         .main-content { padding: 30px; position: relative; z-index: 1; }
@@ -151,6 +174,8 @@
         }
         .tab:hover { border-color: #8b949e; }
         .tab.active { border-color: var(--accent); background: rgba(33, 38, 45, 0.9); }
+        .tab.disabled { opacity: 0.5; cursor: not-allowed; }
+        .tab.disabled:hover { border-color: var(--border); }
         .tab-label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; }
         .count { display: block; font-size: 1.8rem; font-weight: 600; margin-top: 5px; }
 
@@ -215,9 +240,15 @@
 
         .empty-state { padding: 40px; text-align: center; color: #6e7681; }
 
-        .stack-containers { display: flex; gap: 4px; margin-top: 5px; }
-        .stack-dot { width: 6px; height: 6px; border-radius: 50%; }
+        /* Stack status */
+        .stack-containers {
+            display: flex; gap: 4px; margin-top: 5px;
+        }
+        .stack-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+        }
 
+        /* Modal */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000;
@@ -236,20 +267,34 @@
             width: 100%; padding: 10px; background: var(--bg);
             border: 1px solid var(--border); color: var(--text); border-radius: 4px;
         }
-        .form-group textarea { font-family: monospace; font-size: 0.85rem; min-height: 200px; resize: vertical; }
+        .form-group textarea {
+            font-family: monospace; font-size: 0.85rem; min-height: 200px; resize: vertical;
+        }
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline: none; border-color: var(--accent);
         }
         .form-group small { color: #6e7681; font-size: 0.7rem; }
+
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
         .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
 
+        /* Logs modal */
         .logs-container {
-            background: #000; border: 1px solid var(--border); border-radius: 4px;
-            padding: 15px; font-family: monospace; font-size: 0.75rem;
-            max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; color: #0f0;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #0f0;
         }
 
+        /* Toast */
         .toast {
             position: fixed; bottom: 20px; right: 20px; padding: 12px 20px;
             background: var(--card); border: 1px solid var(--border); border-radius: 6px;
@@ -262,6 +307,8 @@
     </style>
 </head>
 <body>
+
+    <!-- SPACE BACKGROUND -->
     <div class="space-bg">
         <div class="stars"></div>
         <div class="stars2"></div>
@@ -272,11 +319,13 @@
         <div class="orbit-ring orbit2"></div>
     </div>
 
+    <!-- UPDATE BANNER -->
     <div class="update-banner" id="update-banner">
         🎉 Nowa wersja dostępna!
         <a href="https://github.com/TobiMessi/orbit/releases/latest" target="_blank">Pobierz teraz →</a>
     </div>
 
+    <!-- GITHUB BANNER -->
     <div class="github-banner">
         ⭐ Sprawdź projekt na GitHub: <a href="https://github.com/TobiMessi/orbit" target="_blank">TobiMessi/orbit</a>
     </div>
@@ -319,18 +368,22 @@
         </div>
     </div>
 
+    <!-- Modal tworzenia kontenera -->
     <div class="modal" id="container-modal">
         <div class="modal-content">
             <div class="modal-title">🐳 Utwórz kontener</div>
+
             <div class="form-group">
                 <label>Obraz *</label>
                 <input type="text" id="c-image" placeholder="np. nginx:latest, postgres:15">
                 <small>Obraz zostanie pobrany automatycznie jeśli nie istnieje</small>
             </div>
+
             <div class="form-group">
                 <label>Nazwa kontenera</label>
                 <input type="text" id="c-name" placeholder="np. my-nginx (opcjonalne)">
             </div>
+
             <div class="form-group">
                 <label>Porty</label>
                 <div class="form-row">
@@ -339,11 +392,13 @@
                 </div>
                 <small>Mapowanie: host:kontener</small>
             </div>
+
             <div class="form-group">
                 <label>Zmienne środowiskowe</label>
                 <input type="text" id="c-env" placeholder="KEY=value, DB_HOST=localhost">
                 <small>Oddzielone przecinkami</small>
             </div>
+
             <div class="form-group">
                 <label>Restart Policy</label>
                 <select id="c-restart">
@@ -353,12 +408,14 @@
                     <option value="unless-stopped">Unless Stopped</option>
                 </select>
             </div>
+
             <div class="form-group">
                 <label>Sieć</label>
                 <select id="c-network">
                     <option value="">Domyślna (bridge)</option>
                 </select>
             </div>
+
             <div class="modal-buttons">
                 <button class="btn btn-secondary" onclick="closeModal('container-modal')">Anuluj</button>
                 <button class="btn" onclick="createContainer()">Utwórz</button>
@@ -366,13 +423,16 @@
         </div>
     </div>
 
+    <!-- Modal tworzenia sieci/volume -->
     <div class="modal" id="simple-modal">
         <div class="modal-content">
             <div class="modal-title" id="simple-modal-title">Utwórz</div>
+
             <div class="form-group">
                 <label>Nazwa *</label>
                 <input type="text" id="simple-name" placeholder="Nazwa">
             </div>
+
             <div class="form-group" id="driver-group" style="display:none;">
                 <label>Driver</label>
                 <select id="simple-driver">
@@ -382,6 +442,7 @@
                     <option value="macvlan">macvlan</option>
                 </select>
             </div>
+
             <div class="modal-buttons">
                 <button class="btn btn-secondary" onclick="closeModal('simple-modal')">Anuluj</button>
                 <button class="btn" onclick="confirmSimpleCreate()">Utwórz</button>
@@ -389,13 +450,16 @@
         </div>
     </div>
 
+    <!-- Modal pull image -->
     <div class="modal" id="pull-modal">
         <div class="modal-content">
             <div class="modal-title">📥 Pobierz obraz</div>
+
             <div class="form-group">
                 <label>Nazwa obrazu *</label>
                 <input type="text" id="pull-image" placeholder="np. nginx:latest, redis:7-alpine">
             </div>
+
             <div class="modal-buttons">
                 <button class="btn btn-secondary" onclick="closeModal('pull-modal')">Anuluj</button>
                 <button class="btn" onclick="pullImage()">Pobierz</button>
@@ -403,13 +467,16 @@
         </div>
     </div>
 
+    <!-- Modal tworzenia stacka -->
     <div class="modal" id="stack-modal">
         <div class="modal-content wide">
             <div class="modal-title">📦 Utwórz Stack (Docker Compose)</div>
+
             <div class="form-group">
                 <label>Nazwa stacka *</label>
                 <input type="text" id="stack-name" placeholder="np. my-app">
             </div>
+
             <div class="form-group">
                 <label>Docker Compose (YAML) *</label>
                 <textarea id="stack-compose" placeholder="version: '3'
@@ -419,6 +486,7 @@ services:
     ports:
       - '8080:80'"></textarea>
             </div>
+
             <div class="modal-buttons">
                 <button class="btn btn-secondary" onclick="closeModal('stack-modal')">Anuluj</button>
                 <button class="btn" onclick="createStack()">Uruchom Stack</button>
@@ -426,6 +494,7 @@ services:
         </div>
     </div>
 
+    <!-- Modal logów -->
     <div class="modal" id="logs-modal">
         <div class="modal-content wide">
             <div class="modal-title" id="logs-title">📋 Logi kontenera</div>
@@ -437,7 +506,9 @@ services:
         </div>
     </div>
 
+    <!-- Toast -->
     <div class="toast" id="toast"></div>
+
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>

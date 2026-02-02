@@ -8,3 +8,8 @@ orbit.db
 *.sqlite
 __pycache__/
 *.pyc
+orbit.db
+*.db
+*.sqlite
+__pycache__/
+*.pyc
