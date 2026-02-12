@@ -1,6 +1,6 @@
 <div align="center">
 
-#  Orbit Control
+#  Orbit™ Control
 
 ### Simple & Beautiful Docker Management Panel
 
@@ -119,9 +119,9 @@ docker-compose up -d
 - [x] Network management
 - [x] User authentication
 - [x] Update checker
-- [ ] Stack/Compose management
-- [ ] Multi-host support
-- [ ] Container logs viewer
+- [x] Stack/Compose management
+- [x] Multi-host support
+- [x] Container logs viewer
 - [ ] Container exec terminal
 - [ ] Resource usage graphs
 - [ ] Discord/Telegram notifications
@@ -163,6 +163,6 @@ If you find this project useful, please consider giving it a star!
 
 <div align="center">
 
-**Made with ❤️ by [TobiMessi](https://github.com/TobiMessi)**
+**Made with ❤️ by [DevLabStudy](https://github.com/DevLabStudy)**
 
 </div>
