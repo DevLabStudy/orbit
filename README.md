@@ -194,6 +194,14 @@ Przykładowa odpowiedź:
 
 Planowane rozszerzenia API obejmują statystyki zasobów, terminal exec, zarządzanie wieloma hostami Docker i powiadomienia.
 
+## Wsparcie projektu
+
+Jeśli Orbit jest dla Ciebie przydatny, możesz wesprzeć rozwój:
+
+- [GitHub](https://github.com/DevLabStudy)
+- [Patreon](https://patreon.com/DevStudyLab)
+- [Buy Me a Coffee](https://buymeacoffee.com/DevLabStudy)
+
 ## Licencja
 
 Projekt jest dostępny na licencji MIT. Copyright © DevLabStudy.
