@@ -1,40 +1,79 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="pl">
 <head>
-    <title>Orbit Login</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Orbit Control — logowanie</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
     <style>
-        body { background: #0b1120; color: white; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-card { background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #334155; width: 320px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        h2 { text-align: center; font-weight: 300; margin-bottom: 30px; }
-        input { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-login { background: #38bdf8; color: #0f172a; }
-        .btn-register { background: transparent; color: #38bdf8; border: 1px solid #38bdf8; }
-        button:hover { opacity: 0.8; transform: translateY(-2px); }
+        :root { --ink:#f7f8fb; --muted:#9ba6ba; --line:rgba(255,255,255,.1); --panel:rgba(16,24,40,.76); --cyan:#5eead4; --blue:#60a5fa; }
+        * { box-sizing:border-box; }
+        body { margin:0; min-height:100vh; display:grid; place-items:center; overflow:hidden; color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; background:#070b14; }
+        .scene { position:fixed; inset:0; overflow:hidden; background:radial-gradient(circle at 20% 20%,#12304d 0,transparent 34%),radial-gradient(circle at 90% 80%,#26306a 0,transparent 38%),#070b14; }
+        .scene:before,.scene:after { content:""; position:absolute; width:42vw; height:42vw; border:1px solid rgba(94,234,212,.18); border-radius:50%; filter:blur(.2px); animation:drift 18s ease-in-out infinite alternate; }
+        .scene:before { top:-22vw; right:-8vw; box-shadow:0 0 0 34px rgba(96,165,250,.03),0 0 0 68px rgba(96,165,250,.025); }
+        .scene:after { bottom:-28vw; left:-14vw; animation-delay:-7s; }
+        .grid { position:absolute; inset:0; opacity:.2; background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px); background-size:48px 48px; transform:perspective(500px) rotateX(55deg) scale(1.6); transform-origin:bottom; }
+        @keyframes drift { to { transform:translate(3vw,2vw) rotate(9deg); } }
+        .layout { position:relative; z-index:1; width:min(1040px,92vw); display:grid; grid-template-columns:1.05fr .95fr; gap:7vw; align-items:center; }
+        .brand { animation:rise .7s ease both; }
+        .mark { width:62px; height:62px; display:grid; place-items:center; margin-bottom:28px; border:1px solid rgba(94,234,212,.5); border-radius:18px; color:var(--cyan); font-size:30px; background:rgba(94,234,212,.08); box-shadow:0 0 40px rgba(94,234,212,.13); }
+        h1 { margin:0 0 20px; font-size:clamp(2.6rem,6vw,5.4rem); line-height:.95; letter-spacing:-.08em; }
+        h1 span { color:var(--cyan); }
+        .tagline { max-width:440px; margin:0; color:var(--muted); font-size:1.05rem; line-height:1.7; }
+        .bullets { display:flex; flex-wrap:wrap; gap:10px; margin-top:28px; color:#d5deed; font-size:.78rem; }
+        .bullets span { padding:8px 11px; border:1px solid var(--line); border-radius:999px; background:rgba(255,255,255,.035); }
+        .card { padding:34px; border:1px solid var(--line); border-radius:25px; background:var(--panel); box-shadow:0 24px 80px rgba(0,0,0,.35); backdrop-filter:blur(20px); animation:rise .7s .12s ease both; }
+        .eyebrow { margin:0 0 8px; color:var(--cyan); font-size:.7rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+        h2 { margin:0 0 24px; font-size:1.55rem; }
+        label { display:block; margin:17px 0 7px; color:#bdc7d8; font-size:.78rem; font-weight:700; }
+        input { width:100%; padding:14px 15px; border:1px solid var(--line); outline:0; border-radius:12px; color:var(--ink); background:rgba(0,0,0,.2); transition:.2s; }
+        input:focus { border-color:var(--cyan); box-shadow:0 0 0 4px rgba(94,234,212,.1); }
+        button { width:100%; margin-top:24px; padding:14px; border:0; border-radius:12px; color:#062321; font-weight:800; cursor:pointer; background:linear-gradient(100deg,var(--cyan),var(--blue)); transition:.2s; }
+        button:hover { transform:translateY(-2px); box-shadow:0 12px 25px rgba(94,234,212,.18); }
+        .secondary { margin-top:10px; color:#c7d2e4; background:transparent; border:1px solid var(--line); }
+        .message { min-height:20px; margin-top:16px; color:#fb7185; font-size:.82rem; }
+        .hint { margin:22px 0 0; color:#7f8ba0; font-size:.72rem; text-align:center; }
+        @keyframes rise { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+        @media (max-width:760px) { .layout { grid-template-columns:1fr; gap:28px; } .brand { text-align:center; } .mark { margin-inline:auto; } .tagline { margin:auto; } .bullets { justify-content:center; } .card { padding:25px; } }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <h2>Orbit <span style="color:#38bdf8; font-weight:bold">Control</span></h2>
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="password" placeholder="Hasło">
-        <button class="btn-login" onclick="auth('/login')">Zaloguj</button>
-        <button class="btn-register" onclick="auth('/register')">Zarejestruj się</button>
-    </div>
+    <div class="scene"><div class="grid"></div></div>
+    <main class="layout">
+        <section class="brand">
+            <div class="mark">◈</div>
+            <p class="eyebrow">DevLabStudy / Orbit</p>
+            <h1>Docker,<br><span>pod kontrolą.</span></h1>
+            <p class="tagline">Prosty, szybki panel do zarządzania kontenerami, obrazami, sieciami i stackami Compose.</p>
+            <div class="bullets"><span>● Live status</span><span>⌘ API ready</span><span>◌ Compose</span></div>
+        </section>
+        <section class="card">
+            <p class="eyebrow">Workspace access</p>
+            <h2>Witaj ponownie</h2>
+            <label for="email">Adres email</label>
+            <input id="email" type="email" placeholder="ty@przyklad.pl" autocomplete="email">
+            <label for="password">Hasło</label>
+            <input id="password" type="password" placeholder="Minimum 8 znaków" autocomplete="current-password">
+            <button onclick="auth('/login')">Zaloguj do panelu</button>
+            <button class="secondary" onclick="auth('/register')">Utwórz konto</button>
+            <div class="message" id="message"></div>
+            <p class="hint">Orbit Control · DevLabStudy</p>
+        </section>
+    </main>
     <script>
         async function auth(path) {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const res = await fetch(path, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email, password})
-            });
-            const data = await res.json();
-            if(res.ok && path === '/login') window.location.href = '/';
-            else if(res.ok) alert(data.message);
-            else alert(data.message || "Błąd!");
+            const message = document.getElementById('message');
+            message.textContent = '';
+            try {
+                const res = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email:email.value.trim(), password:password.value }) });
+                const data = await res.json();
+                if (res.ok && path === '/login') window.location.href = '/';
+                else if (res.ok) message.style.color = '#5eead4', message.textContent = data.message;
+                else message.textContent = data.message || 'Nie udało się wykonać operacji.';
+            } catch (_) { message.textContent = 'Brak połączenia z serwerem.'; }
         }
+        document.addEventListener('keydown', event => { if (event.key === 'Enter') auth('/login'); });
     </script>
 </body>
 </html>

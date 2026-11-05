@@ -1,5 +1,5 @@
 let cachedData = null;
-let activeTab = null;
+let activeTab = 'containers';
 let currentLogsContainer = null;
 
 function escapeHtml(value) {
@@ -70,6 +70,16 @@ function updateList(type) {
         stacks: 'Stacks'
     };
     header.innerText = titles[type] || 'Lista';
+    const subtitle = document.getElementById('details-subtitle');
+    if (subtitle) {
+        subtitle.innerText = {
+            containers: 'Wszystkie kontenery i ich mapowania portów',
+            images: 'Obrazy dostępne lokalnie',
+            volumes: 'Trwałe dane Dockera',
+            networks: 'Sieci i połączenia kontenerów',
+            stacks: 'Projekty Docker Compose'
+        }[type] || 'Zasoby środowiska';
+    }
 
     // Pokaż przycisk dodawania dla wszystkich typów
     addBtn.style.display = ['containers', 'volumes', 'networks', 'images', 'stacks'].includes(type) ? 'block' : 'none';
@@ -486,7 +496,7 @@ function logout() {
 async function checkForUpdate() {
     try {
         const currentVersion = "1.0.0";
-        const res = await fetch('https://api.github.com/repos/TobiMessi/orbit/releases/latest');
+        const res = await fetch('https://api.github.com/repos/DevLabStudy/orbit/releases/latest');
         if (!res.ok) return;
 
         const data = await res.json();
@@ -507,5 +517,6 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 refreshData();
+updateList('containers');
 setInterval(refreshData, 5000);
 checkForUpdate();

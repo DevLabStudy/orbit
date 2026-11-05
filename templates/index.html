@@ -1,516 +1,66 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <title>Orbit Control</title>
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Orbit Control — DevLabStudy</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
     <style>
-        :root {
-            --bg: #0d1117; --card: #161b22; --border: #30363d;
-            --accent: #58a6ff; --error: #f85149; --success: #3fb950;
-            --warning: #d29922; --text: #c9d1d9;
-        }
-        * { box-sizing: border-box; }
-        body {
-            background-color: var(--bg); color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            padding: 0; margin: 0; line-height: 1.5;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        /* ============ SPACE BACKGROUND ============ */
-        .space-bg {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: -1;
-            overflow: hidden;
-            background: radial-gradient(ellipse at bottom, #1a1a2e 0%, #0d1117 100%);
-        }
-
-        .stars {
-            position: absolute;
-            width: 100%; height: 100%;
-            background-image:
-                radial-gradient(2px 2px at 20px 30px, #eee, transparent),
-                radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
-                radial-gradient(1px 1px at 90px 40px, #fff, transparent),
-                radial-gradient(2px 2px at 160px 120px, rgba(255,255,255,0.9), transparent),
-                radial-gradient(1px 1px at 230px 80px, #fff, transparent),
-                radial-gradient(2px 2px at 300px 150px, rgba(255,255,255,0.7), transparent),
-                radial-gradient(1px 1px at 370px 200px, #fff, transparent),
-                radial-gradient(2px 2px at 450px 50px, rgba(255,255,255,0.8), transparent);
-            background-size: 500px 300px;
-            animation: twinkle 5s ease-in-out infinite;
-        }
-
-        .stars2 {
-            position: absolute;
-            width: 100%; height: 100%;
-            background-image:
-                radial-gradient(1px 1px at 50px 100px, #fff, transparent),
-                radial-gradient(2px 2px at 100px 200px, rgba(255,255,255,0.6), transparent),
-                radial-gradient(1px 1px at 200px 50px, #fff, transparent),
-                radial-gradient(1px 1px at 280px 180px, rgba(255,255,255,0.8), transparent),
-                radial-gradient(2px 2px at 400px 100px, #fff, transparent),
-                radial-gradient(1px 1px at 480px 250px, rgba(255,255,255,0.7), transparent);
-            background-size: 550px 350px;
-            animation: twinkle 7s ease-in-out infinite reverse;
-        }
-
-        @keyframes twinkle {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* Planets */
-        .planet {
-            position: absolute;
-            border-radius: 50%;
-        }
-
-        .planet1 {
-            width: 80px; height: 80px;
-            background: radial-gradient(circle at 30% 30%, #58a6ff, #1a4b8c);
-            top: 15%; right: 10%;
-            box-shadow: 0 0 40px rgba(88, 166, 255, 0.3);
-            animation: float 20s ease-in-out infinite;
-        }
-
-        .planet2 {
-            width: 40px; height: 40px;
-            background: radial-gradient(circle at 30% 30%, #f85149, #8b2020);
-            top: 60%; right: 5%;
-            box-shadow: 0 0 20px rgba(248, 81, 73, 0.3);
-            animation: float 15s ease-in-out infinite reverse;
-        }
-
-        .planet3 {
-            width: 25px; height: 25px;
-            background: radial-gradient(circle at 30% 30%, #3fb950, #1a5c28);
-            top: 40%; left: 5%;
-            box-shadow: 0 0 15px rgba(63, 185, 80, 0.3);
-            animation: float 25s ease-in-out infinite;
-        }
-
-        /* Orbit rings */
-        .orbit-ring {
-            position: absolute;
-            border: 1px solid rgba(88, 166, 255, 0.1);
-            border-radius: 50%;
-            animation: rotate 60s linear infinite;
-        }
-
-        .orbit1 {
-            width: 300px; height: 300px;
-            top: 10%; right: -50px;
-        }
-
-        .orbit2 {
-            width: 200px; height: 200px;
-            bottom: 20%; left: -30px;
-            animation-duration: 45s;
-            animation-direction: reverse;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
-        }
-
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        /* ============ UPDATE BANNER ============ */
-        .update-banner {
-            display: none;
-            background: linear-gradient(90deg, #238636, #2ea043);
-            color: white;
-            padding: 12px 20px;
-            text-align: center;
-            font-size: 0.85rem;
-        }
-        .update-banner.visible { display: block; }
-        .update-banner a {
-            color: white;
-            font-weight: 600;
-            margin-left: 10px;
-            text-decoration: underline;
-        }
-        .update-banner a:hover { opacity: 0.9; }
-
-        /* GitHub Banner */
-        .github-banner {
-            background: rgba(88, 166, 255, 0.1);
-            border-bottom: 1px solid var(--border);
-            padding: 8px 20px;
-            text-align: center;
-            font-size: 0.8rem;
-        }
-        .github-banner a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .github-banner a:hover { text-decoration: underline; }
-
-        .main-content { padding: 30px; position: relative; z-index: 1; }
-
-        .header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 20px;
-        }
-        h1 { font-size: 1.5rem; font-weight: 400; margin: 0; }
-        h1 b { color: var(--accent); }
-
-        .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; }
-        .tab {
-            background: rgba(22, 27, 34, 0.9); border: 1px solid var(--border); border-radius: 6px;
-            padding: 20px; cursor: pointer; transition: all 0.2s;
-            backdrop-filter: blur(10px);
-        }
-        .tab:hover { border-color: #8b949e; }
-        .tab.active { border-color: var(--accent); background: rgba(33, 38, 45, 0.9); }
-        .tab.disabled { opacity: 0.5; cursor: not-allowed; }
-        .tab.disabled:hover { border-color: var(--border); }
-        .tab-label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; }
-        .count { display: block; font-size: 1.8rem; font-weight: 600; margin-top: 5px; }
-
-        #details-section {
-            margin-top: 25px; background: rgba(22, 27, 34, 0.95); border: 1px solid var(--border);
-            border-radius: 6px; display: none; overflow: hidden;
-            backdrop-filter: blur(10px);
-        }
-        #details-section.visible { display: block; }
-
-        .section-header {
-            padding: 15px 20px; background: rgba(33, 38, 45, 0.9); border-bottom: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .section-title { font-size: 0.9rem; font-weight: 600; color: #f0f6fc; }
-
-        .btn {
-            background: var(--accent); color: #0d1117; border: none;
-            padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600;
-        }
-        .btn:hover { opacity: 0.8; }
-        .btn-secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
-
-        .list-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 12px 20px; border-bottom: 1px solid var(--border);
-        }
-        .list-item:last-child { border-bottom: none; }
-        .list-item:hover { background: rgba(33, 38, 45, 0.5); }
-
-        .info { display: flex; align-items: center; gap: 12px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; }
-        .dot.running { background: var(--success); box-shadow: 0 0 5px var(--success); }
-        .dot.stopped, .dot.exited { background: var(--error); }
-        .dot.paused, .dot.restarting { background: var(--warning); }
-        .dot.restarting { animation: pulse 1s infinite; }
-        .dot.default { background: var(--accent); }
-
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-        .item-name { font-weight: 500; }
-        .item-details { font-family: monospace; font-size: 0.75rem; color: #8b949e; }
-        .item-details.ports { color: #79c0ff; margin-top: 3px; }
-        .item-details.ports a { color: inherit; }
-        .item-meta { display: flex; align-items: center; gap: 10px; }
-        .item-id { font-family: monospace; font-size: 0.7rem; color: #6e7681; }
-
-        .actions { display: flex; gap: 5px; }
-        .action-btn {
-            background: transparent; border: 1px solid var(--border); color: var(--text);
-            padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem;
-        }
-        .action-btn:hover { background: #21262d; }
-        .action-btn.start { color: var(--success); border-color: var(--success); }
-        .action-btn.stop { color: var(--warning); border-color: var(--warning); }
-        .action-btn.restart { color: var(--accent); border-color: var(--accent); }
-        .action-btn.remove { color: var(--error); border-color: var(--error); }
-        .action-btn.logs { color: #a371f7; border-color: #a371f7; }
-
-        button.logout {
-            background: transparent; color: var(--error); border: 1px solid var(--border);
-            padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
-        }
-
-        .empty-state { padding: 40px; text-align: center; color: #6e7681; }
-
-        /* Stack status */
-        .stack-containers {
-            display: flex; gap: 4px; margin-top: 5px;
-        }
-        .stack-dot {
-            width: 6px; height: 6px; border-radius: 50%;
-        }
-
-        /* Modal */
-        .modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000;
-        }
-        .modal.visible { display: flex; }
-        .modal-content {
-            background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-            padding: 25px; width: 450px; max-height: 80vh; overflow-y: auto;
-        }
-        .modal-content.wide { width: 700px; }
-        .modal-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; }
-
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 0.8rem; color: #8b949e; margin-bottom: 5px; }
-        .form-group input, .form-group select, .form-group textarea {
-            width: 100%; padding: 10px; background: var(--bg);
-            border: 1px solid var(--border); color: var(--text); border-radius: 4px;
-        }
-        .form-group textarea {
-            font-family: monospace; font-size: 0.85rem; min-height: 200px; resize: vertical;
-        }
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-            outline: none; border-color: var(--accent);
-        }
-        .form-group small { color: #6e7681; font-size: 0.7rem; }
-
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-
-        /* Logs modal */
-        .logs-container {
-            background: #000;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 15px;
-            font-family: monospace;
-            font-size: 0.75rem;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-            color: #0f0;
-        }
-
-        /* Toast */
-        .toast {
-            position: fixed; bottom: 20px; right: 20px; padding: 12px 20px;
-            background: var(--card); border: 1px solid var(--border); border-radius: 6px;
-            display: none; z-index: 1001; max-width: 350px;
-        }
-        .toast.visible { display: block; animation: slideIn 0.3s ease; }
-        .toast.success { border-color: var(--success); }
-        .toast.error { border-color: var(--error); }
-        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        :root { --bg:#080c16; --panel:#101827; --panel2:#0d1421; --line:#1d2a3e; --text:#edf3ff; --muted:#8290a8; --cyan:#5eead4; --blue:#60a5fa; --green:#34d399; --amber:#fbbf24; --red:#fb7185; }
+        * { box-sizing:border-box; } body { margin:0; color:var(--text); background:var(--bg); font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif; }
+        body:before { content:""; position:fixed; inset:0; z-index:-1; background:radial-gradient(circle at 78% -10%,rgba(96,165,250,.12),transparent 30%),radial-gradient(circle at 10% 100%,rgba(94,234,212,.06),transparent 30%); }
+        .app { display:grid; grid-template-columns:245px 1fr; min-height:100vh; }
+        aside { display:flex; flex-direction:column; padding:28px 18px; border-right:1px solid var(--line); background:rgba(9,14,25,.82); backdrop-filter:blur(16px); }
+        .logo { display:flex; align-items:center; gap:12px; padding:0 12px 35px; font-weight:800; letter-spacing:-.04em; font-size:1.15rem; }
+        .logo-mark { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; color:#062321; background:linear-gradient(135deg,var(--cyan),var(--blue)); }
+        .logo small { display:block; margin-top:3px; color:var(--muted); font-size:.61rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; }
+        nav { display:grid; gap:6px; } nav button { width:100%; display:flex; align-items:center; gap:12px; padding:12px; border:1px solid transparent; border-radius:11px; color:var(--muted); text-align:left; background:transparent; cursor:pointer; font:inherit; transition:.2s; } nav button:hover,nav button.active { color:var(--text); border-color:var(--line); background:#121d2e; } nav button.active { box-shadow:inset 3px 0 var(--cyan); } nav .icon { width:20px; color:var(--cyan); text-align:center; }
+        .side-bottom { margin-top:auto; padding:16px 12px 0; border-top:1px solid var(--line); } .engine { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:.75rem; } .engine i { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 12px var(--green); }
+        .logout { width:100%; margin-top:15px; padding:10px; border:1px solid var(--line); border-radius:10px; color:var(--muted); background:transparent; cursor:pointer; }
+        main { min-width:0; padding:32px clamp(20px,4vw,55px); } .topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:36px; } .kicker { margin:0 0 8px; color:var(--cyan); font-size:.7rem; font-weight:800; letter-spacing:.15em; text-transform:uppercase; } h1 { margin:0; font-size:clamp(1.8rem,3vw,2.7rem); letter-spacing:-.06em; } .subtitle { margin:8px 0 0; color:var(--muted); }
+        .top-actions { display:flex; gap:10px; } .ghost,.primary { padding:11px 15px; border-radius:10px; font-weight:700; cursor:pointer; } .ghost { border:1px solid var(--line); color:var(--muted); background:var(--panel); } .primary { border:0; color:#062321; background:linear-gradient(100deg,var(--cyan),var(--blue)); }
+        .stats { display:grid; grid-template-columns:repeat(5,1fr); gap:13px; margin-bottom:28px; } .stat { position:relative; overflow:hidden; padding:18px; border:1px solid var(--line); border-radius:16px; background:linear-gradient(145deg,rgba(16,24,39,.95),rgba(13,20,33,.7)); } .stat:after { content:""; position:absolute; width:70px; height:70px; right:-25px; bottom:-32px; border:1px solid rgba(94,234,212,.18); border-radius:50%; } .stat-label { color:var(--muted); font-size:.72rem; } .stat-value { display:block; margin-top:12px; font-size:1.9rem; font-weight:800; letter-spacing:-.06em; }
+        .workspace { border:1px solid var(--line); border-radius:18px; overflow:hidden; background:rgba(16,24,39,.78); } .section-head { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 22px; border-bottom:1px solid var(--line); } .section-head h2 { margin:0; font-size:1rem; } .section-head span { color:var(--muted); font-size:.75rem; }
+        #details-list { min-height:120px; } .list-item { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:17px 22px; border-bottom:1px solid rgba(29,42,62,.7); transition:.2s; } .list-item:last-child { border-bottom:0; } .list-item:hover { background:#121d2e; } .info { display:flex; align-items:center; gap:13px; min-width:0; } .dot { flex:0 0 auto; width:9px; height:9px; border-radius:50%; } .dot.running { background:var(--green); box-shadow:0 0 12px var(--green); } .dot.stopped,.dot.dead { background:var(--red); } .dot.paused,.dot.restarting { background:var(--amber); } .dot.default { background:var(--blue); } .item-name { font-weight:750; } .item-details { color:var(--muted); font-size:.76rem; } .item-details.ports { margin-top:5px; color:var(--cyan); } .item-details a { color:inherit; } .item-id { color:#53627a; font: .68rem ui-monospace,monospace; } .item-meta { display:flex; align-items:center; gap:16px; } .actions { display:flex; gap:6px; } .action-btn { padding:7px 9px; border:1px solid var(--line); border-radius:8px; color:var(--muted); background:transparent; cursor:pointer; } .action-btn:hover { color:var(--text); background:#1a293e; } .action-btn.start { color:var(--green); } .action-btn.stop { color:var(--amber); } .action-btn.restart { color:var(--blue); } .action-btn.remove { color:var(--red); } .action-btn.logs { color:#c4b5fd; }
+        .empty-state { padding:65px 20px; color:var(--muted); text-align:center; } .empty-state:before { content:"◌"; display:block; margin-bottom:12px; color:var(--cyan); font-size:2rem; }
+        .modal { display:none; position:fixed; inset:0; z-index:10; place-items:center; padding:20px; background:rgba(2,6,14,.78); backdrop-filter:blur(8px); } .modal.visible { display:grid; } .modal-content { width:min(480px,100%); max-height:90vh; overflow:auto; padding:28px; border:1px solid var(--line); border-radius:18px; background:#101827; box-shadow:0 30px 100px #0008; } .modal-content.wide { width:min(740px,100%); } .modal-title { margin-bottom:22px; font-size:1.15rem; font-weight:800; } .form-group { margin-bottom:15px; } .form-group label { display:block; margin-bottom:7px; color:var(--muted); font-size:.76rem; } .form-group input,.form-group select,.form-group textarea { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:9px; outline:0; color:var(--text); background:#0a111d; } .form-group textarea { min-height:200px; resize:vertical; font: .8rem ui-monospace,monospace; } .form-group small { color:#64748b; font-size:.68rem; } .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; } .modal-buttons { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; } .modal-buttons .btn { width:auto; padding:10px 15px; border:0; border-radius:9px; cursor:pointer; color:#062321; background:linear-gradient(100deg,var(--cyan),var(--blue)); font-weight:800; } .btn-secondary { color:var(--muted)!important; border:1px solid var(--line)!important; background:transparent!important; } .logs-container { max-height:430px; overflow:auto; padding:15px; border:1px solid var(--line); border-radius:10px; color:#a7f3d0; background:#050910; white-space:pre-wrap; font: .75rem/1.6 ui-monospace,monospace; } .toast { position:fixed; right:22px; bottom:22px; z-index:30; display:none; max-width:360px; padding:13px 17px; border:1px solid var(--line); border-radius:10px; background:#111c2c; box-shadow:0 15px 40px #0006; } .toast.visible { display:block; } .toast.success { border-color:var(--green); } .toast.error { border-color:var(--red); }
+        @media (max-width:1000px) { .stats { grid-template-columns:repeat(3,1fr); } } @media (max-width:700px) { .app { display:block; } aside { position:sticky; top:0; z-index:5; display:block; padding:13px; border-right:0; border-bottom:1px solid var(--line); } .logo { padding:0 5px 12px; } nav { display:flex; overflow:auto; } nav button { width:auto; flex:0 0 auto; } nav button span:last-child { display:none; } .side-bottom { display:none; } main { padding:24px 14px; } .topbar { display:block; } .top-actions { margin-top:20px; } .stats { grid-template-columns:repeat(2,1fr); } .list-item { align-items:flex-start; flex-direction:column; } .item-meta { width:100%; justify-content:space-between; } }
     </style>
 </head>
 <body>
-
-    <!-- SPACE BACKGROUND -->
-    <div class="space-bg">
-        <div class="stars"></div>
-        <div class="stars2"></div>
-        <div class="planet planet1"></div>
-        <div class="planet planet2"></div>
-        <div class="planet planet3"></div>
-        <div class="orbit-ring orbit1"></div>
-        <div class="orbit-ring orbit2"></div>
-    </div>
-
-    <!-- UPDATE BANNER -->
-    <div class="update-banner" id="update-banner">
-        🎉 Nowa wersja dostępna!
-        <a href="https://github.com/TobiMessi/orbit/releases/latest" target="_blank">Pobierz teraz →</a>
-    </div>
-
-    <!-- GITHUB BANNER -->
-    <div class="github-banner">
-        ⭐ Sprawdź projekt na GitHub: <a href="https://github.com/TobiMessi/orbit" target="_blank">TobiMessi/orbit</a>
-    </div>
-
-    <div class="main-content">
-        <div class="header">
-            <h1>Orbit <b>Control</b></h1>
-            <button class="logout" onclick="logout()">Logout</button>
-        </div>
-
-        <div class="tabs">
-            <div class="tab" data-type="containers">
-                <span class="tab-label">Containers</span>
-                <span class="count" id="count-containers">0</span>
-            </div>
-            <div class="tab" data-type="images">
-                <span class="tab-label">Images</span>
-                <span class="count" id="count-images">0</span>
-            </div>
-            <div class="tab" data-type="volumes">
-                <span class="tab-label">Volumes</span>
-                <span class="count" id="count-volumes">0</span>
-            </div>
-            <div class="tab" data-type="networks">
-                <span class="tab-label">Networks</span>
-                <span class="count" id="count-networks">0</span>
-            </div>
-            <div class="tab" data-type="stacks">
-                <span class="tab-label">Stacks</span>
-                <span class="count" id="count-stacks">0</span>
-            </div>
-        </div>
-
-        <div id="details-section">
-            <div class="section-header">
-                <span class="section-title" id="details-header">Lista</span>
-                <button class="btn" id="btn-add" style="display:none;" onclick="openCreateModal()">+ Dodaj</button>
-            </div>
+<div class="app">
+    <aside>
+        <div class="logo"><div class="logo-mark">◈</div><div>Orbit Control<small>by DevLabStudy</small></div></div>
+        <nav>
+            <button class="tab active" data-type="containers"><span class="icon">▣</span><span>Kontenery</span></button>
+            <button class="tab" data-type="images"><span class="icon">◈</span><span>Obrazy</span></button>
+            <button class="tab" data-type="volumes"><span class="icon">◇</span><span>Volume</span></button>
+            <button class="tab" data-type="networks"><span class="icon">⌁</span><span>Sieci</span></button>
+            <button class="tab" data-type="stacks"><span class="icon">▦</span><span>Stacki Compose</span></button>
+        </nav>
+        <div class="side-bottom"><div class="engine"><i></i> Docker Engine online</div><button class="logout" onclick="logout()">Wyloguj się</button></div>
+    </aside>
+    <main>
+        <header class="topbar"><div><p class="kicker">DevLabStudy / Workspace</p><h1>Centrum dowodzenia</h1><p class="subtitle">Zarządzaj swoim środowiskiem Docker bez zbędnego hałasu.</p></div><div class="top-actions"><button class="ghost" onclick="refreshData()">↻ Odśwież</button><button class="primary" onclick="openCreateModal()">+ Utwórz</button></div></header>
+        <section class="stats">
+            <div class="stat"><span class="stat-label">Kontenery</span><strong class="stat-value" id="count-containers">0</strong></div>
+            <div class="stat"><span class="stat-label">Obrazy</span><strong class="stat-value" id="count-images">0</strong></div>
+            <div class="stat"><span class="stat-label">Volume</span><strong class="stat-value" id="count-volumes">0</strong></div>
+            <div class="stat"><span class="stat-label">Sieci</span><strong class="stat-value" id="count-networks">0</strong></div>
+            <div class="stat"><span class="stat-label">Stacki</span><strong class="stat-value" id="count-stacks">0</strong></div>
+        </section>
+        <section class="workspace" id="details-section">
+            <div class="section-head"><div><h2 id="details-header">Kontenery</h2><span id="details-subtitle">Wszystkie zasoby w środowisku</span></div><button class="primary" id="btn-add" style="display:none;" onclick="openCreateModal()">+ Dodaj zasób</button></div>
             <div id="details-list"></div>
-        </div>
-    </div>
-
-    <!-- Modal tworzenia kontenera -->
-    <div class="modal" id="container-modal">
-        <div class="modal-content">
-            <div class="modal-title">🐳 Utwórz kontener</div>
-
-            <div class="form-group">
-                <label>Obraz *</label>
-                <input type="text" id="c-image" placeholder="np. nginx:latest, postgres:15">
-                <small>Obraz zostanie pobrany automatycznie jeśli nie istnieje</small>
-            </div>
-
-            <div class="form-group">
-                <label>Nazwa kontenera</label>
-                <input type="text" id="c-name" placeholder="np. my-nginx (opcjonalne)">
-            </div>
-
-            <div class="form-group">
-                <label>Porty</label>
-                <div class="form-row">
-                    <input type="text" id="c-port-host" placeholder="Port hosta (np. 8080)">
-                    <input type="text" id="c-port-container" placeholder="Port kontenera (np. 80)">
-                </div>
-                <small>Mapowanie: host:kontener</small>
-            </div>
-
-            <div class="form-group">
-                <label>Zmienne środowiskowe</label>
-                <input type="text" id="c-env" placeholder="KEY=value, DB_HOST=localhost">
-                <small>Oddzielone przecinkami</small>
-            </div>
-
-            <div class="form-group">
-                <label>Restart Policy</label>
-                <select id="c-restart">
-                    <option value="no">No (nie restartuj)</option>
-                    <option value="always">Always (zawsze)</option>
-                    <option value="on-failure">On Failure (przy błędzie)</option>
-                    <option value="unless-stopped">Unless Stopped</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Sieć</label>
-                <select id="c-network">
-                    <option value="">Domyślna (bridge)</option>
-                </select>
-            </div>
-
-            <div class="modal-buttons">
-                <button class="btn btn-secondary" onclick="closeModal('container-modal')">Anuluj</button>
-                <button class="btn" onclick="createContainer()">Utwórz</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal tworzenia sieci/volume -->
-    <div class="modal" id="simple-modal">
-        <div class="modal-content">
-            <div class="modal-title" id="simple-modal-title">Utwórz</div>
-
-            <div class="form-group">
-                <label>Nazwa *</label>
-                <input type="text" id="simple-name" placeholder="Nazwa">
-            </div>
-
-            <div class="form-group" id="driver-group" style="display:none;">
-                <label>Driver</label>
-                <select id="simple-driver">
-                    <option value="bridge">bridge</option>
-                    <option value="host">host</option>
-                    <option value="overlay">overlay</option>
-                    <option value="macvlan">macvlan</option>
-                </select>
-            </div>
-
-            <div class="modal-buttons">
-                <button class="btn btn-secondary" onclick="closeModal('simple-modal')">Anuluj</button>
-                <button class="btn" onclick="confirmSimpleCreate()">Utwórz</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal pull image -->
-    <div class="modal" id="pull-modal">
-        <div class="modal-content">
-            <div class="modal-title">📥 Pobierz obraz</div>
-
-            <div class="form-group">
-                <label>Nazwa obrazu *</label>
-                <input type="text" id="pull-image" placeholder="np. nginx:latest, redis:7-alpine">
-            </div>
-
-            <div class="modal-buttons">
-                <button class="btn btn-secondary" onclick="closeModal('pull-modal')">Anuluj</button>
-                <button class="btn" onclick="pullImage()">Pobierz</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal tworzenia stacka -->
-    <div class="modal" id="stack-modal">
-        <div class="modal-content wide">
-            <div class="modal-title">📦 Utwórz Stack (Docker Compose)</div>
-
-            <div class="form-group">
-                <label>Nazwa stacka *</label>
-                <input type="text" id="stack-name" placeholder="np. my-app">
-            </div>
-
-            <div class="form-group">
-                <label>Docker Compose (YAML) *</label>
-                <textarea id="stack-compose" placeholder="version: '3'
-services:
-  web:
-    image: nginx:latest
-    ports:
-      - '8080:80'"></textarea>
-            </div>
-
-            <div class="modal-buttons">
-                <button class="btn btn-secondary" onclick="closeModal('stack-modal')">Anuluj</button>
-                <button class="btn" onclick="createStack()">Uruchom Stack</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal logów -->
-    <div class="modal" id="logs-modal">
-        <div class="modal-content wide">
-            <div class="modal-title" id="logs-title">📋 Logi kontenera</div>
-            <div class="logs-container" id="logs-content">Ładowanie...</div>
-            <div class="modal-buttons">
-                <button class="btn btn-secondary" onclick="closeModal('logs-modal')">Zamknij</button>
-                <button class="btn" onclick="refreshLogs()">🔄 Odśwież</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast -->
-    <div class="toast" id="toast"></div>
-
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+        </section>
+    </main>
+</div>
+<div class="modal" id="container-modal"><div class="modal-content"><div class="modal-title">Utwórz kontener</div><div class="form-group"><label>Obraz *</label><input id="c-image" placeholder="np. nginx:latest"></div><div class="form-group"><label>Nazwa</label><input id="c-name" placeholder="np. web-server"></div><div class="form-group"><label>Port hosta / kontenera</label><div class="form-row"><input id="c-port-host" placeholder="8080"><input id="c-port-container" placeholder="80"></div></div><div class="form-group"><label>Zmienne środowiskowe</label><input id="c-env" placeholder="KEY=value, APP_ENV=prod"></div><div class="form-group"><label>Polityka restartu</label><select id="c-restart"><option value="no">Nie restartuj</option><option value="always">Zawsze</option><option value="on-failure">Po błędzie</option><option value="unless-stopped">Unless stopped</option></select></div><div class="form-group"><label>Sieć</label><select id="c-network"><option value="">Domyślna (bridge)</option></select></div><div class="modal-buttons"><button class="btn btn-secondary" onclick="closeModal('container-modal')">Anuluj</button><button class="btn" onclick="createContainer()">Utwórz kontener</button></div></div></div>
+<div class="modal" id="simple-modal"><div class="modal-content"><div class="modal-title" id="simple-modal-title">Utwórz zasób</div><div class="form-group"><label>Nazwa *</label><input id="simple-name" placeholder="Nazwa"></div><div class="form-group" id="driver-group" style="display:none;"><label>Driver</label><select id="simple-driver"><option value="bridge">bridge</option><option value="host">host</option><option value="overlay">overlay</option><option value="macvlan">macvlan</option></select></div><div class="modal-buttons"><button class="btn btn-secondary" onclick="closeModal('simple-modal')">Anuluj</button><button class="btn" onclick="confirmSimpleCreate()">Utwórz</button></div></div></div>
+<div class="modal" id="pull-modal"><div class="modal-content"><div class="modal-title">Pobierz obraz</div><div class="form-group"><label>Nazwa obrazu *</label><input id="pull-image" placeholder="np. redis:7-alpine"></div><div class="modal-buttons"><button class="btn btn-secondary" onclick="closeModal('pull-modal')">Anuluj</button><button class="btn" onclick="pullImage()">Pobierz</button></div></div></div>
+<div class="modal" id="stack-modal"><div class="modal-content wide"><div class="modal-title">Uruchom stack Compose</div><div class="form-group"><label>Nazwa stacka *</label><input id="stack-name" placeholder="np. monitoring"></div><div class="form-group"><label>Docker Compose YAML *</label><textarea id="stack-compose" placeholder="services:&#10;  web:&#10;    image: nginx:latest&#10;    ports:&#10;      - '8080:80'"></textarea></div><div class="modal-buttons"><button class="btn btn-secondary" onclick="closeModal('stack-modal')">Anuluj</button><button class="btn" onclick="createStack()">Uruchom stack</button></div></div></div>
+<div class="modal" id="logs-modal"><div class="modal-content wide"><div class="modal-title" id="logs-title">Logi kontenera</div><div class="logs-container" id="logs-content">Ładowanie...</div><div class="modal-buttons"><button class="btn btn-secondary" onclick="closeModal('logs-modal')">Zamknij</button><button class="btn" onclick="refreshLogs()">Odśwież logi</button></div></div></div>
+<div class="toast" id="toast"></div>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>
