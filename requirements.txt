@@ -1,4 +1,4 @@
-flask
-docker
-PyYAML
-psutil
+Flask>=3.0,<4
+docker>=7.0,<8
+PyYAML>=6.0,<7
+gunicorn>=23,<24

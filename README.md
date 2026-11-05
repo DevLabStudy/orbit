@@ -1,68 +1,60 @@
-<div align="center">
+# Orbit Control
 
-#  Orbit™ Control
+Lekki panel webowy do zarządzania lokalnym Docker Engine — prostsza alternatywa dla Portainera. Orbit pozwala przeglądać i obsługiwać kontenery, obrazy, porty, volume, sieci oraz stacki Docker Compose. Udostępnia również wersjonowane API dla aplikacji desktopowych i mobilnych.
 
-### Simple & Beautiful Docker Management Panel
+## Funkcje
 
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-Backend-000000?style=for-the-badge&logo=flask&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+- kontenery: lista, status, porty, start, stop, restart, usuwanie i logi,
+- tworzenie kontenerów z obrazem, nazwą, portami, zmiennymi środowiskowymi i polityką restartu,
+- obrazy: pobieranie i usuwanie,
+- volume oraz sieci: tworzenie i usuwanie,
+- stacki Docker Compose: uruchamianie, zatrzymywanie, restart i usuwanie,
+- logowanie użytkownika i trwałe dane w SQLite,
+- automatyczne odświeżanie statusu panelu,
+- API `/api/v1` z tokenami Bearer dla aplikacji desktop/mobile.
 
+## Wymagania
 
+- Docker Engine i dostęp do `/var/run/docker.sock`,
+- Docker Compose v2 — tylko jeśli chcesz używać stacków,
+- Docker lub Python 3.12 do uruchomienia bez kontenera.
 
-**Monitor and manage your Docker containers, images, volumes, and networks from a beautiful web interface.**
+## Uruchomienie przez Docker
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Roadmap](#-roadmap)
+Najprościej zbudować obraz lokalnie:
 
-</div>
+```bash
+docker build -t orbit-control:local .
+```
 
-
----
-
-##  Features
-
-| Feature | Status |
-|---------|--------|
-|  **Container Management** |  Start, Stop, Restart, Remove |
-|  **Image Management** |  Pull, Remove |
-|  **Volume Management** |  Create, Remove |
-|  **Network Management** |  Create, Remove |
-|  **User Authentication** |  Login, Register |
-|  **Real-time Stats** |  Auto-refresh every 5s |
-|  **Update Notifications** |  GitHub release checker |
-|  **Stack Management** |  Coming Soon |
-|  **Multi-host Support** |  Coming Soon |
-
----
-
-##  Installation
-
-### Docker (Recommended)
+Uruchomienie:
 
 ```bash
 docker run -d \
   --name orbit \
   --user root \
   -p 5001:5000 \
+  -e ORBIT_SECRET_KEY="$(openssl rand -hex 32)" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v orbit-data:/app/data \
   --restart unless-stopped \
-  tobimessi2010/orbit-control:v4
+  orbit-control:local
 ```
+
+Otwórz panel: <http://localhost:5001>
 
 ### Docker Compose
 
 ```yaml
-version: '3.8'
-
 services:
   orbit:
-    image: tobimessi2010/orbit-control:v4
+    build: .
     container_name: orbit
     user: root
     ports:
       - "5001:5000"
+    environment:
+      ORBIT_SECRET_KEY: "wstaw-tutaj-losowy-sekret"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - orbit-data:/app/data
@@ -72,97 +64,117 @@ volumes:
   orbit-data:
 ```
 
+Uruchom:
+
 ```bash
-docker-compose up -d
+docker compose up -d --build
 ```
 
----
+> **Uwaga:** dostęp do Docker socket daje aplikacji uprawnienia do zarządzania Dockerem na hoście. Nie wystawiaj panelu publicznie bez HTTPS, ochrony sieciowej i silnego hasła.
 
-##  Usage
+## `ORBIT_SECRET_KEY` — co to jest?
 
-1. Open **http://localhost:5001** in your browser
-2. **Register** a new account
-3. **Login** and start managing your Docker environment! 🎉
+To prywatny klucz używany przez Flask do podpisywania sesji logowania w panelu webowym. Nie jest tokenem Docker Hub i nie trzeba go nigdzie wcześniej pobierać — należy wygenerować własny losowy klucz.
 
-### Default Port: `5001`
+Wygeneruj go na Linux/macOS:
 
----
+```bash
+openssl rand -hex 32
+```
 
-## Screenshots
+Następnie ustaw wynik jako `ORBIT_SECRET_KEY`. Klucz powinien być długi, losowy i nie powinien trafić do repozytorium ani publicznego README. Po zmianie klucza aktywne sesje przeglądarki zostaną unieważnione.
 
-<div align="center">
-<details>
-<summary>Click to expand</summary>
+## Pierwsze użycie
 
-<br>
+1. Uruchom Orbit i otwórz `http://localhost:5001`.
+2. Załóż konto na stronie rejestracji.
+3. Zaloguj się.
+4. Wybierz kategorię zasobów i użyj przycisku `+ Dodaj`.
 
-### Login Page
-<img src="docs/login.png" alt="Login" width="600" style="display: block; margin: 0 auto;">
+Jeżeli panel pokazuje `Docker Engine jest niedostępny`, sprawdź, czy kontener został uruchomiony z:
 
-<br>
+```bash
+-v /var/run/docker.sock:/var/run/docker.sock
+```
 
-### Dashboard
-<img src="docs/screenshot.png" alt="Orbit Control Screenshot" width="600" style="display: block; margin: 0 auto;">
+## API dla aplikacji desktopowej i mobilnej
 
-</details>
-</div>
+API jest wersjonowane pod `/api/v1`. Do autoryzacji używa tokenów Bearer, niezależnych od ciasteczek przeglądarki.
 
-</details>
+### Pobranie tokenu
 
----
+```bash
+curl -X POST http://localhost:5001/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"twoje-haslo"}'
+```
 
-##  Roadmap
+Odpowiedź zawiera `token`. Przechowuj go bezpiecznie po stronie aplikacji.
 
-- [x] Container CRUD operations
-- [x] Image management
-- [x] Volume management
-- [x] Network management
-- [x] User authentication
-- [x] Update checker
-- [x] Stack/Compose management
-- [x] Multi-host support
-- [x] Container logs viewer
-- [ ] Container exec terminal
-- [ ] Resource usage graphs
-- [ ] Discord/Telegram notifications
+### Odczyt statusu
 
----
+```bash
+curl http://localhost:5001/api/v1/status \
+  -H "Authorization: Bearer TWÓJ_TOKEN"
+```
 
-##  Tech Stack
+### Dostępne endpointy
 
-- **Backend:** Python 3.11, Flask
-- **Frontend:** Vanilla JS, CSS
-- **Database:** SQLite
-- **Container:** Docker
+| Metoda | Endpoint | Opis |
+|---|---|---|
+| `POST` | `/api/v1/auth/login` | logowanie i wydanie tokenu |
+| `POST` | `/api/v1/auth/revoke` | unieważnienie bieżącego tokenu |
+| `GET` | `/api/v1/status` | pełny status Docker Engine |
+| `GET` | `/api/v1/containers` | lista kontenerów |
+| `POST` | `/api/v1/containers` | utworzenie kontenera |
+| `POST` | `/api/v1/containers/{id}/start` | uruchomienie |
+| `POST` | `/api/v1/containers/{id}/stop` | zatrzymanie |
+| `POST` | `/api/v1/containers/{id}/restart` | restart |
+| `DELETE` | `/api/v1/containers/{id}` | usunięcie |
+| `GET` | `/api/v1/containers/{id}/logs` | logi |
+| `POST` | `/api/v1/images/pull` | pobranie obrazu |
 
----
+Wszystkie endpointy poza logowaniem wymagają:
 
-##  Contributing
+```text
+Authorization: Bearer TWÓJ_TOKEN
+```
 
-Contributions are welcome! Feel free to:
+## Uruchomienie lokalne bez Dockera
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+```bash
+python3.12 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+export ORBIT_SECRET_KEY="$(openssl rand -hex 32)"
+python app.py
+```
 
----
+## Konfiguracja
 
-##  License
+| Zmienna | Domyślna wartość | Znaczenie |
+|---|---|---|
+| `ORBIT_SECRET_KEY` | `change-me-in-production` | klucz sesji Flask; ustaw własny |
+| `ORBIT_DATA_DIR` | `./data` | katalog bazy i stacków |
+| `ORBIT_DB_PATH` | `$ORBIT_DATA_DIR/orbit.db` | ścieżka bazy SQLite |
+| `PORT` | `5000` | port procesu aplikacji |
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Sprawdzanie działania
 
----
+```bash
+curl http://localhost:5001/health
+```
 
-##  Star History
+Przykładowa odpowiedź:
 
-If you find this project useful, please consider giving it a star! 
+```json
+{"docker":true,"status":"ok"}
+```
 
----
+## Rozwój
 
-<div align="center">
+Planowane rozszerzenia API obejmują statystyki zasobów, terminal exec, zarządzanie wieloma hostami Docker i powiadomienia.
 
-**Made with ❤️ by [DevLabStudy](https://github.com/DevLabStudy)**
+## Licencja
 
-</div>
+Projekt jest dostępny na licencji MIT. Copyright © DevLabStudy.

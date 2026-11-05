@@ -1,0 +1,10 @@
+.git
+.gitignore
+.idea
+.venv
+venv
+__pycache__
+*.pyc
+data
+docs
+README.md
