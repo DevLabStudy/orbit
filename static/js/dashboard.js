@@ -119,7 +119,7 @@ function updateList(type) {
                         ${item.status === 'running' ? `<button class="action-btn stop" title="Zatrzymaj kontener" onclick="containerAction('${item.id}', 'stop')">Zatrzymaj</button>` : ''}
                         <button class="action-btn restart" title="Uruchom kontener ponownie" onclick="containerAction('${item.id}', 'restart')">Restart</button>
                         <button class="action-btn logs" title="Pokaż ostatnie logi" onclick="showLogs('${item.id}', '${escapeHtml(item.name)}')">Logi</button>
-                        <button class="action-btn logs" title="Pokaż konfigurację kontenera" onclick="showContainerDetails('${item.id}', '${escapeHtml(item.name)}')">Opcje</button>
+                        <button class="action-btn logs" title="Zmień sieć i porty kontenera" onclick="editContainer('${item.id}', '${escapeHtml(item.name)}')">Konfiguracja</button>
                         <button class="action-btn remove" title="Usuń kontener" onclick="containerAction('${item.id}', 'remove')">Usuń</button>
                     </div>
                     <div style="text-align:right;">
@@ -268,6 +268,65 @@ async function showContainerDetails(id, name) {
     } catch (err) {
         showToast('Nie udało się pobrać opcji kontenera. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
     }
+}
+
+async function editContainer(id, name) {
+        try {
+            const res = await fetch(`/container/${encodeURIComponent(id)}/inspect`);
+            const data = await res.json();
+            if (!res.ok) return showError(data);
+
+            const networkSelect = document.getElementById('edit-network');
+            networkSelect.innerHTML = '<option value="">Domyślna sieć bridge</option>';
+            (cachedData.networks || []).forEach(net => {
+                networkSelect.innerHTML += `<option value="${escapeHtml(net.name)}">${escapeHtml(net.name)}</option>`;
+            });
+            const selectedNetwork = (data.networks || []).find(item => item !== 'bridge') || '';
+            networkSelect.value = selectedNetwork;
+            document.getElementById('edit-container-id').value = id;
+            document.getElementById('edit-container-name').innerText = name;
+            document.getElementById('edit-ports').value = (data.ports || [])
+                .filter(port => port.host)
+                .map(port => `${port.host.split(':').pop()}:${port.container.split('/')[0]}`)
+                .join(', ');
+            document.getElementById('container-edit-modal').classList.add('visible');
+        } catch (err) {
+            showToast('Nie udało się odczytać konfiguracji kontenera. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
+        }
+    }
+
+async function saveContainerConfig() {
+        const id = document.getElementById('edit-container-id').value;
+        const network = document.getElementById('edit-network').value;
+        const ports = {};
+        const rawPorts = document.getElementById('edit-ports').value.trim();
+        if (rawPorts) {
+            for (const mapping of rawPorts.split(',')) {
+                const [host, container] = mapping.trim().split(':').map(value => value.trim());
+                if (!/^\d+$/.test(host || '') || !/^\d+$/.test(container || '')) {
+                    showToast('Porty wpisz w formacie host:kontener, np. 8080:80', 'error');
+                    return;
+                }
+                ports[container] = Number(host);
+            }
+        }
+        try {
+            const res = await fetch(`/container/${encodeURIComponent(id)}/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ network, ports })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                closeModal('container-edit-modal');
+                showToast(data.message, 'success');
+                refreshData();
+            } else {
+                showError(data);
+            }
+        } catch (err) {
+            showToast('Nie udało się zapisać konfiguracji: ' + err, 'error');
+        }
 }
 
 async function showStackDetails(name) {

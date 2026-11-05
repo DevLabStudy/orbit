@@ -5,7 +5,7 @@ Lekki panel webowy do zarządzania lokalnym Docker Engine — prostsza alternaty
 ## Funkcje
 
 - kontenery: lista, status, porty, start, stop, restart, usuwanie i logi,
-- opcje kontenera: konfiguracja, komenda, zmienne środowiskowe, mounty, sieci, porty i etykiety,
+- konfiguracja kontenera: zmiana sieci i mapowań portów; zapis odtwarza kontener z zachowaniem obrazu, zmiennych i volume,
 - tworzenie kontenerów z obrazem, nazwą, portami, zmiennymi środowiskowymi i polityką restartu,
 - obrazy: pobieranie, budowanie z Dockerfile, szczegóły, usuwanie i czyszczenie obrazów bez tagów,
 - volume oraz sieci: tworzenie i usuwanie,
@@ -142,6 +142,7 @@ curl http://localhost:5001/api/v1/status \
 | `POST` | `/api/v1/containers/{id}/start` | uruchomienie |
 | `POST` | `/api/v1/containers/{id}/stop` | zatrzymanie |
 | `POST` | `/api/v1/containers/{id}/restart` | restart |
+| `POST` | `/api/v1/containers/{id}/update` | zmiana sieci i mapowań portów |
 | `DELETE` | `/api/v1/containers/{id}` | usunięcie |
 | `GET` | `/api/v1/containers/{id}/logs` | logi |
 | `POST` | `/api/v1/images/pull` | pobranie obrazu |

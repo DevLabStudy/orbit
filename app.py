@@ -168,6 +168,20 @@ def format_ports(container):
     return ports
 
 
+def parse_port_bindings(ports):
+    if ports is None:
+        return {}
+    if not isinstance(ports, dict):
+        raise ValueError("Porty muszą być mapą portu kontenera na port hosta")
+    normalized = {}
+    for container_port, host_port in ports.items():
+        container_port = str(container_port).split("/", 1)[0].strip()
+        if not container_port.isdigit() or not str(host_port).isdigit():
+            raise ValueError("Porty muszą być liczbami")
+        normalized[f"{container_port}/tcp"] = int(host_port)
+    return normalized
+
+
 def serialize_container(container):
     container.reload()
     return {
@@ -324,6 +338,12 @@ def api_container_action(container_id, action):
     return container_action(container_id, action)
 
 
+@app.post("/api/v1/containers/<container_id>/update")
+@require_api_token
+def api_update_container(container_id):
+    return container_update.__wrapped__(container_id)
+
+
 @app.delete("/api/v1/containers/<container_id>")
 @require_api_token
 def api_delete_container(container_id):
@@ -423,7 +443,10 @@ def container_action(container_id, action):
     except NotFound:
         return json_error("Nie znaleziono kontenera", 404)
     except APIError as exc:
-        return json_error(f"Docker odrzucił operację: {exc.explanation}", 409)
+        explanation = exc.explanation
+        if action == "restart" and "network" in explanation.lower() and "not found" in explanation.lower():
+            explanation += " Otwórz konfigurację kontenera i wybierz istniejącą sieć, aby naprawić jego konfigurację."
+        return json_error(f"Docker odrzucił operację: {explanation}", 409)
 
 
 @app.route("/container/<container_id>/<action>", methods=["POST"])
@@ -509,6 +532,68 @@ def container_inspect(container_id):
         return json_error(f"Nie udało się odczytać konfiguracji: {exc.explanation}", 502)
 
 
+@app.route("/container/<container_id>/update", methods=["POST"])
+@require_login
+def container_update(container_id):
+    data = request.get_json(silent=True) or {}
+    network = str(data.get("network", "")).strip()
+    try:
+        ports = parse_port_bindings(data.get("ports") or {})
+    except ValueError as exc:
+        return json_error(str(exc))
+
+    client, error = get_client_or_error()
+    if error:
+        return error
+    try:
+        old = client.containers.get(container_id)
+        old.reload()
+        old_name = old.name
+        attrs = old.attrs
+        config = attrs.get("Config", {})
+        host_config = attrs.get("HostConfig", {})
+
+        if network:
+            client.networks.get(network)
+
+        restart = host_config.get("RestartPolicy") or {}
+        create_kwargs = {
+            "image": attrs.get("Image") or image_name(old),
+            "name": f"{old_name}-orbit-update",
+            "ports": ports or None,
+            "environment": config.get("Env") or None,
+            "command": config.get("Cmd") or None,
+            "entrypoint": config.get("Entrypoint") or None,
+            "working_dir": config.get("WorkingDir") or None,
+            "user": config.get("User") or None,
+            "labels": config.get("Labels") or None,
+            "restart_policy": restart,
+        }
+
+        binds = {}
+        for mount in attrs.get("Mounts", []):
+            source = mount.get("Name") or mount.get("Source")
+            destination = mount.get("Destination")
+            if source and destination:
+                binds[source] = {"bind": destination, "mode": mount.get("Mode") or "rw"}
+        if binds:
+            create_kwargs["volumes"] = binds
+        if network:
+            create_kwargs["network"] = network
+
+        replacement = client.containers.create(**create_kwargs)
+        was_running = container_status(old) in {"running", "restarting"}
+        old.remove(force=True)
+        replacement.rename(old_name)
+        if was_running:
+            replacement.start()
+        return jsonify({"status": "ok", "message": f"Konfiguracja kontenera {old_name} została zapisana"})
+    except NotFound:
+        return json_error("Nie znaleziono kontenera lub wybranej sieci", 404)
+    except APIError as exc:
+        return json_error(f"Nie udało się zapisać konfiguracji: {exc.explanation}", 409)
+
+
 @app.route("/container/create", methods=["POST"])
 @require_login
 def container_create():
@@ -530,15 +615,10 @@ def container_create():
             client.images.get(image)
         except ImageNotFound:
             client.images.pull(image)
-        ports = data.get("ports") or {}
-        if not isinstance(ports, dict):
-            return json_error("Porty muszą być mapą portu kontenera na port hosta")
-        normalized_ports = {}
-        for container_port, host_port in ports.items():
-            container_port = str(container_port).split("/", 1)[0].strip()
-            if not container_port.isdigit() or not str(host_port).isdigit():
-                return json_error("Porty muszą być liczbami")
-            normalized_ports[f"{container_port}/tcp"] = int(host_port)
+        try:
+            normalized_ports = parse_port_bindings(data.get("ports") or {})
+        except ValueError as exc:
+            return json_error(str(exc))
         environment = data.get("env") or []
         if isinstance(environment, dict):
             environment = [f"{key}={value}" for key, value in environment.items()]
