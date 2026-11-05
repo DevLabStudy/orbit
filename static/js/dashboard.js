@@ -16,6 +16,17 @@ function formatPorts(ports) {
     }).join(', ');
 }
 
+function containerLinks(ports) {
+    if (!ports) return '';
+    return ports
+        .filter(port => port.url)
+        .map(port => {
+            const label = port.host ? `Przejdź do ${port.host}` : `Otwórz ${port.container}`;
+            return `<a class="action-btn start" href="${escapeHtml(port.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+        })
+        .join('');
+}
+
 function showError(data, fallback = 'Wystąpił błąd') {
     const message = data && data.message ? data.message : fallback;
     const help = data && data.help_url ? `<br><a href="${data.help_url}" target="_blank" rel="noopener">Kontakt i pomoc: devlabstudy.ovh</a>` : '';
@@ -111,6 +122,7 @@ function updateList(type) {
                         <div class="item-name">${escapeHtml(item.name)}</div>
                         <div class="item-details">${escapeHtml(item.image)}</div>
                         <div class="item-details ports">${formatPorts(item.ports)}</div>
+                        <div class="actions" style="justify-content:flex-start; margin-top:8px;">${containerLinks(item.ports)}</div>
                     </div>
                 </div>
                 <div class="item-meta">
