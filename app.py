@@ -85,7 +85,14 @@ def require_login(view):
 
 
 def json_error(message, status=400):
-    return jsonify({"status": "error", "message": message}), status
+    return jsonify(
+        {
+            "status": "error",
+            "message": message,
+            "help_url": "https://www.devlabstudy.ovh",
+            "help_text": "Potrzebujesz pomocy? devlabstudy.ovh",
+        }
+    ), status
 
 
 def hash_token(token):
@@ -459,6 +466,49 @@ def container_logs(container_id):
         return json_error(f"Nie udało się pobrać logów: {exc.explanation}", 502)
 
 
+@app.route("/container/<container_id>/inspect")
+@require_login
+def container_inspect(container_id):
+    client, error = get_client_or_error()
+    if error:
+        return error
+    try:
+        container = client.containers.get(container_id)
+        container.reload()
+        attrs = container.attrs
+        config = attrs.get("Config", {})
+        host_config = attrs.get("HostConfig", {})
+        mounts = [
+            {
+                "source": mount.get("Source"),
+                "destination": mount.get("Destination"),
+                "mode": mount.get("Mode"),
+                "type": mount.get("Type"),
+            }
+            for mount in attrs.get("Mounts", [])
+        ]
+        return jsonify(
+            {
+                "name": container.name,
+                "id": container.short_id,
+                "status": container_status(container),
+                "image": image_name(container),
+                "command": config.get("Cmd") or [],
+                "entrypoint": config.get("Entrypoint") or [],
+                "environment": config.get("Env") or [],
+                "mounts": mounts,
+                "networks": list((attrs.get("NetworkSettings", {}).get("Networks") or {}).keys()),
+                "restart_policy": host_config.get("RestartPolicy", {}),
+                "ports": format_ports(container),
+                "labels": container.labels,
+            }
+        )
+    except NotFound:
+        return json_error("Nie znaleziono kontenera", 404)
+    except APIError as exc:
+        return json_error(f"Nie udało się odczytać konfiguracji: {exc.explanation}", 502)
+
+
 @app.route("/container/create", methods=["POST"])
 @require_login
 def container_create():
@@ -746,6 +796,41 @@ def stack_operation(name, action):
     if action == "remove":
         return json_error(error_message, 503)
     return json_error(error_message, 404)
+
+
+@app.route("/stack/<name>/details")
+@require_login
+def stack_details(name):
+    if not SAFE_NAME.fullmatch(name):
+        return json_error("Nieprawidłowa nazwa stacka")
+    compose_file = STACKS_PATH / name / "docker-compose.yml"
+    if not compose_file.is_file():
+        return json_error("Nie znaleziono pliku Compose dla tego stacka", 404)
+    try:
+        compose = compose_file.read_text(encoding="utf-8")
+        parsed = yaml.safe_load(compose) or {}
+        services = parsed.get("services", {})
+        return jsonify(
+            {
+                "name": name,
+                "path": str(compose_file),
+                "compose": compose,
+                "services": [
+                    {
+                        "name": service_name,
+                        "image": service.get("image"),
+                        "build": service.get("build"),
+                        "ports": service.get("ports", []),
+                        "volumes": service.get("volumes", []),
+                        "depends_on": service.get("depends_on", []),
+                    }
+                    for service_name, service in services.items()
+                    if isinstance(service, dict)
+                ],
+            }
+        )
+    except (OSError, yaml.YAMLError) as exc:
+        return json_error(f"Nie udało się odczytać konfiguracji stacka: {exc}", 500)
 
 
 @app.route("/health")

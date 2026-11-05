@@ -16,6 +16,12 @@ function formatPorts(ports) {
     }).join(', ');
 }
 
+function showError(data, fallback = 'Wystąpił błąd') {
+    const message = data && data.message ? data.message : fallback;
+    const help = data && data.help_url ? `<br><a href="${data.help_url}" target="_blank" rel="noopener">Kontakt i pomoc: devlabstudy.ovh</a>` : '';
+    showToast(message + help, 'error', true);
+}
+
 // ============ ODŚWIEŻANIE DANYCH ============
 
 async function refreshData() {
@@ -38,7 +44,7 @@ async function refreshData() {
             updateList(activeTab);
         }
     } catch (err) {
-        console.error("Fetch error:", err);
+        showToast('Nie udało się odświeżyć danych. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc: devlabstudy.ovh</a>', 'error', true);
     }
 }
 
@@ -113,6 +119,7 @@ function updateList(type) {
                         ${item.status === 'running' ? `<button class="action-btn stop" title="Zatrzymaj kontener" onclick="containerAction('${item.id}', 'stop')">Zatrzymaj</button>` : ''}
                         <button class="action-btn restart" title="Uruchom kontener ponownie" onclick="containerAction('${item.id}', 'restart')">Restart</button>
                         <button class="action-btn logs" title="Pokaż ostatnie logi" onclick="showLogs('${item.id}', '${escapeHtml(item.name)}')">Logi</button>
+                        <button class="action-btn logs" title="Pokaż konfigurację kontenera" onclick="showContainerDetails('${item.id}', '${escapeHtml(item.name)}')">Opcje</button>
                         <button class="action-btn remove" title="Usuń kontener" onclick="containerAction('${item.id}', 'remove')">Usuń</button>
                     </div>
                     <div style="text-align:right;">
@@ -195,6 +202,7 @@ function updateList(type) {
                         <button class="action-btn start" title="Uruchom stack" onclick="stackAction('${item.name}', 'start')">Uruchom</button>
                         <button class="action-btn stop" title="Zatrzymaj stack" onclick="stackAction('${item.name}', 'stop')">Zatrzymaj</button>
                         <button class="action-btn restart" title="Uruchom stack ponownie" onclick="stackAction('${item.name}', 'restart')">Restart</button>
+                        <button class="action-btn logs" title="Pokaż Compose i usługi" onclick="showStackDetails('${item.name}')">Opcje</button>
                         <button class="action-btn remove" title="Usuń stack" onclick="stackAction('${item.name}', 'remove')">Usuń</button>
                     </div>
                     <div style="text-align:right;">
@@ -216,7 +224,7 @@ async function containerAction(id, action) {
     try {
         const res = await fetch(`/container/${id}/${action}`, { method: 'POST' });
         const data = await res.json();
-        showToast(data.message, res.ok ? 'success' : 'error');
+        res.ok ? showToast(data.message, 'success') : showError(data);
         refreshData();
     } catch (err) {
         showToast('Błąd: ' + err, 'error');
@@ -228,7 +236,7 @@ async function imageRemove(id) {
     try {
         const res = await fetch(`/image/${id}/remove`, { method: 'POST' });
         const data = await res.json();
-        showToast(data.message, res.ok ? 'success' : 'error');
+        res.ok ? showToast(data.message, 'success') : showError(data);
         refreshData();
     } catch (err) {
         showToast('Błąd: ' + err, 'error');
@@ -239,8 +247,37 @@ async function imageRemove(id) {
             const res = await fetch(`/image/${encodeURIComponent(id)}/inspect`);
             const data = await res.json();
             if (!res.ok) {
-                showToast(data.message || 'Nie udało się odczytać obrazu', 'error');
+                showError(data, 'Nie udało się odczytać obrazu');
                 return;
+            }
+
+            async function showContainerDetails(id, name) {
+                document.getElementById('details-title').innerText = `Opcje kontenera: ${name}`;
+                document.getElementById('details-content').innerText = 'Ładowanie...';
+                document.getElementById('details-modal').classList.add('visible');
+                try {
+                    const res = await fetch(`/container/${encodeURIComponent(id)}/inspect`);
+                    const data = await res.json();
+                    if (!res.ok) return showError(data);
+                    document.getElementById('details-content').innerText = JSON.stringify(data, null, 2);
+                } catch (err) {
+                    showToast('Nie udało się pobrać opcji kontenera. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
+                }
+            }
+
+            async function showStackDetails(name) {
+                document.getElementById('details-title').innerText = `Opcje stacka: ${name}`;
+                document.getElementById('details-content').innerText = 'Ładowanie...';
+                document.getElementById('details-modal').classList.add('visible');
+                try {
+                    const res = await fetch(`/stack/${encodeURIComponent(name)}/details`);
+                    const data = await res.json();
+                    if (!res.ok) return showError(data);
+                    const services = data.services.map(service => `${service.name}: ${service.image || 'build'} | porty: ${(service.ports || []).join(', ')}`).join('\n');
+                    document.getElementById('details-content').innerText = `Usługi:\n${services || 'brak'}\n\nDocker Compose:\n${data.compose}`;
+                } catch (err) {
+                    showToast('Nie udało się pobrać opcji stacka. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
+                }
             }
             const size = Math.round((data.size || 0) / 1024 / 1024);
             showToast(`${data.tags.join(', ')} · ${size} MB · ${data.layers} warstw`, 'success');
@@ -527,9 +564,10 @@ function toggleTab(type) {
 
 // ============ TOAST ============
 
-function showToast(message, type = 'success') {
+function showToast(message, type = 'success', html = false) {
     const toast = document.getElementById('toast');
-    toast.innerText = message;
+    if (html) toast.innerHTML = message;
+    else toast.innerText = message;
     toast.className = 'toast visible ' + type;
     setTimeout(() => toast.classList.remove('visible'), 3000);
 }
