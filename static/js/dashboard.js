@@ -22,7 +22,7 @@ function containerLinks(ports) {
         .filter(port => port.url)
         .map(port => {
             const label = port.host ? `Przejdź do ${port.host}` : `Otwórz ${port.container}`;
-            return `<a class="action-btn start" href="${escapeHtml(port.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+            return `<a class="action-btn start container-link" href="${escapeHtml(port.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
         })
         .join('');
 }
