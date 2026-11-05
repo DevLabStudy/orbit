@@ -6,9 +6,9 @@ Lekki panel webowy do zarządzania lokalnym Docker Engine — prostsza alternaty
 
 - kontenery: lista, status, porty, start, stop, restart, usuwanie i logi,
 - tworzenie kontenerów z obrazem, nazwą, portami, zmiennymi środowiskowymi i polityką restartu,
-- obrazy: pobieranie i usuwanie,
+- obrazy: pobieranie, budowanie z Dockerfile, szczegóły, usuwanie i czyszczenie obrazów bez tagów,
 - volume oraz sieci: tworzenie i usuwanie,
-- stacki Docker Compose: uruchamianie, zatrzymywanie, restart i usuwanie,
+- stacki Docker Compose: tworzenie, lista usług i kontenerów, uruchamianie, zatrzymywanie, restart i usuwanie,
 - logowanie użytkownika i trwałe dane w SQLite,
 - automatyczne odświeżanie statusu panelu,
 - API `/api/v1` z tokenami Bearer dla aplikacji desktop/mobile.
@@ -143,6 +143,15 @@ curl http://localhost:5001/api/v1/status \
 | `DELETE` | `/api/v1/containers/{id}` | usunięcie |
 | `GET` | `/api/v1/containers/{id}/logs` | logi |
 | `POST` | `/api/v1/images/pull` | pobranie obrazu |
+| `POST` | `/api/v1/images/build` | zbudowanie obrazu z Dockerfile |
+
+W zakładce **Obrazy** można pobrać obraz z rejestru albo zbudować go z
+Dockerfile. Dostępne są również szczegóły obrazu, usuwanie oraz czyszczenie
+obrazów dangling, czyli bez tagów.
+
+W zakładce **Stacki Compose** można wkleić YAML, uruchomić stack oraz zobaczyć
+jego usługi, kontenery i statusy. Stacki wymagają Docker Compose v2 oraz
+dostępu Orbit do Docker Engine.
 
 Wszystkie endpointy poza logowaniem wymagają:
 

@@ -58,6 +58,7 @@ function updateList(type) {
     const list = document.getElementById('details-list');
     const header = document.getElementById('details-header');
     const addBtn = document.getElementById('btn-add');
+    const cleanBtn = document.getElementById('btn-clean');
     list.innerHTML = '';
 
     if (!cachedData) return;
@@ -83,6 +84,7 @@ function updateList(type) {
 
     // Pokaż przycisk dodawania dla wszystkich typów
     addBtn.style.display = ['containers', 'volumes', 'networks', 'images', 'stacks'].includes(type) ? 'block' : 'none';
+    if (cleanBtn) cleanBtn.style.display = type === 'images' ? 'inline-block' : 'none';
 
     const items = cachedData[type] || [];
 
@@ -124,15 +126,17 @@ function updateList(type) {
                 <div class="info">
                     <div class="dot default"></div>
                     <div>
-                        <div class="item-name">${item.tags[0]}</div>
-                        <div class="item-id">${item.id}</div>
+                        <div class="item-name">${escapeHtml(item.tags[0])}</div>
+                        <div class="item-details">${escapeHtml(item.tags.slice(1).join(', '))}</div>
+                        <div class="item-id">${escapeHtml(item.id)}</div>
                     </div>
                 </div>
                 <div class="item-meta">
                     <div class="actions">
+                        <button class="action-btn logs" onclick="showImageDetails('${item.id}')">ℹ</button>
                         <button class="action-btn remove" onclick="imageRemove('${item.id}')">🗑</button>
                     </div>
-                    <div class="item-details">${item.size}</div>
+                    <div class="item-details">${escapeHtml(item.size)}</div>
                 </div>
             `;
         } else if (type === 'volumes') {
@@ -181,7 +185,8 @@ function updateList(type) {
                 <div class="info">
                     <div class="dot ${statusClass}"></div>
                     <div>
-                        <div class="item-name">${item.name}</div>
+                        <div class="item-name">${escapeHtml(item.name)}</div>
+                        <div class="item-details">${item.containers.map(c => `${escapeHtml(c.name)} (${escapeHtml(c.image || '')})`).join(' · ')}</div>
                         <div class="stack-containers">${containerDots}</div>
                     </div>
                 </div>
@@ -227,6 +232,29 @@ async function imageRemove(id) {
         refreshData();
     } catch (err) {
         showToast('Błąd: ' + err, 'error');
+    }
+
+    async function showImageDetails(id) {
+        try {
+            const res = await fetch(`/image/${encodeURIComponent(id)}/inspect`);
+            const data = await res.json();
+            if (!res.ok) {
+                showToast(data.message || 'Nie udało się odczytać obrazu', 'error');
+                return;
+            }
+            const size = Math.round((data.size || 0) / 1024 / 1024);
+            showToast(`${data.tags.join(', ')} · ${size} MB · ${data.layers} warstw`, 'success');
+        } catch (err) {
+            showToast('Błąd odczytu obrazu: ' + err, 'error');
+        }
+    }
+
+    async function pruneImages() {
+        if (!confirm('Usunąć nieużywane obrazy bez tagów?')) return;
+        const res = await fetch('/image/prune', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.message, res.ok ? 'success' : 'error');
+        refreshData();
     }
 }
 
@@ -438,6 +466,27 @@ async function pullImage() {
     if (!image) {
         showToast('Podaj nazwę obrazu!', 'error');
         return;
+    }
+
+    async function buildImage() {
+        const tag = document.getElementById('build-tag').value.trim();
+        const dockerfile = document.getElementById('build-dockerfile').value.trim();
+        if (!tag || !dockerfile) {
+            showToast('Podaj tag i Dockerfile.', 'error');
+            return;
+        }
+        showToast('Budowanie obrazu...', 'success');
+        const res = await fetch('/image/build', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tag, dockerfile})
+        });
+        const data = await res.json();
+        showToast(data.message, res.ok ? 'success' : 'error');
+        if (res.ok) {
+            closeModal('build-modal');
+            refreshData();
+        }
     }
 
     try {

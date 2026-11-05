@@ -5,6 +5,7 @@ import hashlib
 import shutil
 import sqlite3
 import subprocess
+import tempfile
 from functools import wraps
 from pathlib import Path
 
@@ -30,6 +31,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 VERSION = "2.0.0"
 GITHUB_REPO = "DevLabStudy/orbit"
 SAFE_NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$")
+IMAGE_TAG = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}(?::[a-zA-Z0-9][a-zA-Z0-9._-]{0,127})?$")
 
 
 def get_db():
@@ -186,7 +188,12 @@ def get_stacks(client):
             },
         )
         stack["containers"].append(
-            {"name": container.name, "status": container_status(container)}
+            {
+                "name": container.name,
+                "status": container_status(container),
+                "image": image_name(container),
+                "ports": format_ports(container),
+            }
         )
     return list(stacks.values())
 
@@ -328,6 +335,12 @@ def api_pull_image():
     return image_pull.__wrapped__()
 
 
+@app.post("/api/v1/images/build")
+@require_api_token
+def api_build_image():
+    return image_build.__wrapped__()
+
+
 @app.route("/api/version")
 def get_version():
     return jsonify({"current": VERSION, "github_repo": f"https://github.com/{GITHUB_REPO}"})
@@ -350,6 +363,7 @@ def status():
                 "id": item.short_id.replace("sha256:", ""),
                 "tags": item.tags or ["<none>:<none>"],
                 "size": f"{round(item.attrs.get('Size', 0) / 1024 / 1024, 1)} MB",
+                "created": item.attrs.get("Created"),
             }
             for item in all_images
         ]
@@ -520,6 +534,59 @@ def image_pull():
         return json_error(f"Nie udało się pobrać obrazu: {exc.explanation}", 409)
 
 
+@app.route("/image/build", methods=["POST"])
+@require_login
+def image_build():
+    data = request.get_json(silent=True) or {}
+    tag = str(data.get("tag", "")).strip()
+    dockerfile = str(data.get("dockerfile", "")).strip()
+    if not IMAGE_TAG.fullmatch(tag) or not dockerfile:
+        return json_error("Podaj poprawny tag obrazu i zawartość Dockerfile")
+    if len(dockerfile) > 100_000:
+        return json_error("Dockerfile jest zbyt duży")
+    client, error = get_client_or_error()
+    if error:
+        return error
+    try:
+        with tempfile.TemporaryDirectory(prefix="orbit-build-") as build_dir:
+            Path(build_dir, "Dockerfile").write_text(dockerfile, encoding="utf-8")
+            image, logs = client.images.build(path=build_dir, tag=tag, rm=True)
+        return jsonify(
+            {
+                "status": "ok",
+                "message": f"Obraz {tag} zbudowany",
+                "id": image.short_id,
+                "logs": "\n".join(
+                    item.get("stream", "").strip()
+                    for item in logs
+                    if isinstance(item, dict) and item.get("stream")
+                ),
+            }
+        )
+    except (APIError, docker.errors.BuildError) as exc:
+        return json_error(f"Nie udało się zbudować obrazu: {getattr(exc, 'explanation', str(exc))}", 409)
+
+
+@app.route("/image/prune", methods=["POST"])
+@require_login
+def image_prune():
+    client, error = get_client_or_error()
+    if error:
+        return error
+    try:
+        result = client.images.prune(filters={"dangling": True})
+        reclaimed = round(result.get("SpaceReclaimed", 0) / 1024 / 1024, 1)
+        return jsonify(
+            {
+                "status": "ok",
+                "message": f"Usunięto nieużywane obrazy ({reclaimed} MB)",
+                "deleted": result.get("ImagesDeleted") or [],
+            }
+        )
+    except APIError as exc:
+        return json_error(f"Nie udało się wyczyścić obrazów: {exc.explanation}", 409)
+
+
 @app.route("/image/<path:image_id>/remove", methods=["POST"])
 @require_login
 def image_remove(image_id):
@@ -531,6 +598,31 @@ def image_remove(image_id):
         return jsonify({"status": "ok", "message": "Obraz usunięty"})
     except APIError as exc:
         return json_error(f"Nie udało się usunąć obrazu: {exc.explanation}", 409)
+
+
+@app.route("/image/<path:image_id>/inspect")
+@require_login
+def image_inspect(image_id):
+    client, error = get_client_or_error()
+    if error:
+        return error
+    try:
+        image = client.images.get(image_id)
+        return jsonify(
+            {
+                "id": image.short_id,
+                "tags": image.tags or ["<none>:<none>"],
+                "size": image.attrs.get("Size", 0),
+                "created": image.attrs.get("Created"),
+                "layers": len(image.attrs.get("RootFS", {}).get("Layers", [])),
+                "architecture": image.attrs.get("Architecture"),
+                "os": image.attrs.get("Os"),
+            }
+        )
+    except NotFound:
+        return json_error("Nie znaleziono obrazu", 404)
+    except APIError as exc:
+        return json_error(f"Nie udało się odczytać obrazu: {exc.explanation}", 502)
 
 
 @app.route("/network/create", methods=["POST"])
