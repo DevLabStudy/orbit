@@ -5,6 +5,7 @@ import hashlib
 import shutil
 import sqlite3
 import subprocess
+import tempfile
 from functools import wraps
 from pathlib import Path
 
@@ -30,6 +31,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 VERSION = "2.0.0"
 GITHUB_REPO = "DevLabStudy/orbit"
 SAFE_NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$")
+IMAGE_TAG = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}(?::[a-zA-Z0-9][a-zA-Z0-9._-]{0,127})?$")
 
 
 def get_db():
@@ -83,7 +85,14 @@ def require_login(view):
 
 
 def json_error(message, status=400):
-    return jsonify({"status": "error", "message": message}), status
+    return jsonify(
+        {
+            "status": "error",
+            "message": message,
+            "help_url": "https://www.devlabstudy.ovh",
+            "help_text": "Potrzebujesz pomocy? devlabstudy.ovh",
+        }
+    ), status
 
 
 def hash_token(token):
@@ -148,15 +157,32 @@ def format_ports(container):
             ports.append({"container": container_port, "host": None, "url": None})
             continue
         for binding in bindings:
-            host = f"{binding.get('HostIp', '0.0.0.0')}:{binding.get('HostPort')}"
+            host_ip = binding.get("HostIp") or "127.0.0.1"
+            browser_host = "localhost" if host_ip in {"0.0.0.0", "127.0.0.1", "::"} else host_ip
+            host = f"{browser_host}:{binding.get('HostPort')}"
+            protocol = container_port.rsplit("/", 1)[-1].lower()
             ports.append(
                 {
                     "container": container_port,
                     "host": host,
-                    "url": f"http://{host}" if container_port.startswith(("80/", "443/")) else None,
+                    "url": f"http://{host}" if protocol == "tcp" else None,
                 }
             )
     return ports
+
+
+def parse_port_bindings(ports):
+    if ports is None:
+        return {}
+    if not isinstance(ports, dict):
+        raise ValueError("Porty muszą być mapą portu kontenera na port hosta")
+    normalized = {}
+    for container_port, host_port in ports.items():
+        container_port = str(container_port).split("/", 1)[0].strip()
+        if not container_port.isdigit() or not str(host_port).isdigit():
+            raise ValueError("Porty muszą być liczbami")
+        normalized[f"{container_port}/tcp"] = int(host_port)
+    return normalized
 
 
 def serialize_container(container):
@@ -186,7 +212,12 @@ def get_stacks(client):
             },
         )
         stack["containers"].append(
-            {"name": container.name, "status": container_status(container)}
+            {
+                "name": container.name,
+                "status": container_status(container),
+                "image": image_name(container),
+                "ports": format_ports(container),
+            }
         )
     return list(stacks.values())
 
@@ -310,6 +341,12 @@ def api_container_action(container_id, action):
     return container_action(container_id, action)
 
 
+@app.post("/api/v1/containers/<container_id>/update")
+@require_api_token
+def api_update_container(container_id):
+    return container_update.__wrapped__(container_id)
+
+
 @app.delete("/api/v1/containers/<container_id>")
 @require_api_token
 def api_delete_container(container_id):
@@ -326,6 +363,12 @@ def api_container_logs(container_id):
 @require_api_token
 def api_pull_image():
     return image_pull.__wrapped__()
+
+
+@app.post("/api/v1/images/build")
+@require_api_token
+def api_build_image():
+    return image_build.__wrapped__()
 
 
 @app.route("/api/version")
@@ -350,6 +393,7 @@ def status():
                 "id": item.short_id.replace("sha256:", ""),
                 "tags": item.tags or ["<none>:<none>"],
                 "size": f"{round(item.attrs.get('Size', 0) / 1024 / 1024, 1)} MB",
+                "created": item.attrs.get("Created"),
             }
             for item in all_images
         ]
@@ -402,7 +446,10 @@ def container_action(container_id, action):
     except NotFound:
         return json_error("Nie znaleziono kontenera", 404)
     except APIError as exc:
-        return json_error(f"Docker odrzucił operację: {exc.explanation}", 409)
+        explanation = exc.explanation
+        if action == "restart" and "network" in explanation.lower() and "not found" in explanation.lower():
+            explanation += " Otwórz konfigurację kontenera i wybierz istniejącą sieć, aby naprawić jego konfigurację."
+        return json_error(f"Docker odrzucił operację: {explanation}", 409)
 
 
 @app.route("/container/<container_id>/<action>", methods=["POST"])
@@ -445,6 +492,111 @@ def container_logs(container_id):
         return json_error(f"Nie udało się pobrać logów: {exc.explanation}", 502)
 
 
+@app.route("/container/<container_id>/inspect")
+@require_login
+def container_inspect(container_id):
+    client, error = get_client_or_error()
+    if error:
+        return error
+    try:
+        container = client.containers.get(container_id)
+        container.reload()
+        attrs = container.attrs
+        config = attrs.get("Config", {})
+        host_config = attrs.get("HostConfig", {})
+        mounts = [
+            {
+                "source": mount.get("Source"),
+                "destination": mount.get("Destination"),
+                "mode": mount.get("Mode"),
+                "type": mount.get("Type"),
+            }
+            for mount in attrs.get("Mounts", [])
+        ]
+        return jsonify(
+            {
+                "name": container.name,
+                "id": container.short_id,
+                "status": container_status(container),
+                "image": image_name(container),
+                "command": config.get("Cmd") or [],
+                "entrypoint": config.get("Entrypoint") or [],
+                "environment": config.get("Env") or [],
+                "mounts": mounts,
+                "networks": list((attrs.get("NetworkSettings", {}).get("Networks") or {}).keys()),
+                "restart_policy": host_config.get("RestartPolicy", {}),
+                "ports": format_ports(container),
+                "labels": container.labels,
+            }
+        )
+    except NotFound:
+        return json_error("Nie znaleziono kontenera", 404)
+    except APIError as exc:
+        return json_error(f"Nie udało się odczytać konfiguracji: {exc.explanation}", 502)
+
+
+@app.route("/container/<container_id>/update", methods=["POST"])
+@require_login
+def container_update(container_id):
+    data = request.get_json(silent=True) or {}
+    network = str(data.get("network", "")).strip()
+    try:
+        ports = parse_port_bindings(data.get("ports") or {})
+    except ValueError as exc:
+        return json_error(str(exc))
+
+    client, error = get_client_or_error()
+    if error:
+        return error
+    try:
+        old = client.containers.get(container_id)
+        old.reload()
+        old_name = old.name
+        attrs = old.attrs
+        config = attrs.get("Config", {})
+        host_config = attrs.get("HostConfig", {})
+
+        if network:
+            client.networks.get(network)
+
+        restart = host_config.get("RestartPolicy") or {}
+        create_kwargs = {
+            "image": attrs.get("Image") or image_name(old),
+            "name": f"{old_name}-orbit-update",
+            "ports": ports or None,
+            "environment": config.get("Env") or None,
+            "command": config.get("Cmd") or None,
+            "entrypoint": config.get("Entrypoint") or None,
+            "working_dir": config.get("WorkingDir") or None,
+            "user": config.get("User") or None,
+            "labels": config.get("Labels") or None,
+            "restart_policy": restart,
+        }
+
+        binds = {}
+        for mount in attrs.get("Mounts", []):
+            source = mount.get("Name") or mount.get("Source")
+            destination = mount.get("Destination")
+            if source and destination:
+                binds[source] = {"bind": destination, "mode": mount.get("Mode") or "rw"}
+        if binds:
+            create_kwargs["volumes"] = binds
+        if network:
+            create_kwargs["network"] = network
+
+        replacement = client.containers.create(**create_kwargs)
+        was_running = container_status(old) in {"running", "restarting"}
+        old.remove(force=True)
+        replacement.rename(old_name)
+        if was_running:
+            replacement.start()
+        return jsonify({"status": "ok", "message": f"Konfiguracja kontenera {old_name} została zapisana"})
+    except NotFound:
+        return json_error("Nie znaleziono kontenera lub wybranej sieci", 404)
+    except APIError as exc:
+        return json_error(f"Nie udało się zapisać konfiguracji: {exc.explanation}", 409)
+
+
 @app.route("/container/create", methods=["POST"])
 @require_login
 def container_create():
@@ -466,14 +618,10 @@ def container_create():
             client.images.get(image)
         except ImageNotFound:
             client.images.pull(image)
-        ports = data.get("ports") or {}
-        if not isinstance(ports, dict):
-            return json_error("Porty muszą być mapą portu kontenera na port hosta")
-        normalized_ports = {}
-        for container_port, host_port in ports.items():
-            if not str(container_port).isdigit() or not str(host_port).isdigit():
-                return json_error("Porty muszą być liczbami")
-            normalized_ports[f"{container_port}/tcp"] = int(host_port)
+        try:
+            normalized_ports = parse_port_bindings(data.get("ports") or {})
+        except ValueError as exc:
+            return json_error(str(exc))
         environment = data.get("env") or []
         if isinstance(environment, dict):
             environment = [f"{key}={value}" for key, value in environment.items()]
@@ -520,6 +668,59 @@ def image_pull():
         return json_error(f"Nie udało się pobrać obrazu: {exc.explanation}", 409)
 
 
+@app.route("/image/build", methods=["POST"])
+@require_login
+def image_build():
+    data = request.get_json(silent=True) or {}
+    tag = str(data.get("tag", "")).strip()
+    dockerfile = str(data.get("dockerfile", "")).strip()
+    if not IMAGE_TAG.fullmatch(tag) or not dockerfile:
+        return json_error("Podaj poprawny tag obrazu i zawartość Dockerfile")
+    if len(dockerfile) > 100_000:
+        return json_error("Dockerfile jest zbyt duży")
+    client, error = get_client_or_error()
+    if error:
+        return error
+    try:
+        with tempfile.TemporaryDirectory(prefix="orbit-build-") as build_dir:
+            Path(build_dir, "Dockerfile").write_text(dockerfile, encoding="utf-8")
+            image, logs = client.images.build(path=build_dir, tag=tag, rm=True)
+        return jsonify(
+            {
+                "status": "ok",
+                "message": f"Obraz {tag} zbudowany",
+                "id": image.short_id,
+                "logs": "\n".join(
+                    item.get("stream", "").strip()
+                    for item in logs
+                    if isinstance(item, dict) and item.get("stream")
+                ),
+            }
+        )
+    except (APIError, docker.errors.BuildError) as exc:
+        return json_error(f"Nie udało się zbudować obrazu: {getattr(exc, 'explanation', str(exc))}", 409)
+
+
+@app.route("/image/prune", methods=["POST"])
+@require_login
+def image_prune():
+    client, error = get_client_or_error()
+    if error:
+        return error
+    try:
+        result = client.images.prune(filters={"dangling": True})
+        reclaimed = round(result.get("SpaceReclaimed", 0) / 1024 / 1024, 1)
+        return jsonify(
+            {
+                "status": "ok",
+                "message": f"Usunięto nieużywane obrazy ({reclaimed} MB)",
+                "deleted": result.get("ImagesDeleted") or [],
+            }
+        )
+    except APIError as exc:
+        return json_error(f"Nie udało się wyczyścić obrazów: {exc.explanation}", 409)
+
+
 @app.route("/image/<path:image_id>/remove", methods=["POST"])
 @require_login
 def image_remove(image_id):
@@ -531,6 +732,31 @@ def image_remove(image_id):
         return jsonify({"status": "ok", "message": "Obraz usunięty"})
     except APIError as exc:
         return json_error(f"Nie udało się usunąć obrazu: {exc.explanation}", 409)
+
+
+@app.route("/image/<path:image_id>/inspect")
+@require_login
+def image_inspect(image_id):
+    client, error = get_client_or_error()
+    if error:
+        return error
+    try:
+        image = client.images.get(image_id)
+        return jsonify(
+            {
+                "id": image.short_id,
+                "tags": image.tags or ["<none>:<none>"],
+                "size": image.attrs.get("Size", 0),
+                "created": image.attrs.get("Created"),
+                "layers": len(image.attrs.get("RootFS", {}).get("Layers", [])),
+                "architecture": image.attrs.get("Architecture"),
+                "os": image.attrs.get("Os"),
+            }
+        )
+    except NotFound:
+        return json_error("Nie znaleziono obrazu", 404)
+    except APIError as exc:
+        return json_error(f"Nie udało się odczytać obrazu: {exc.explanation}", 502)
 
 
 @app.route("/network/create", methods=["POST"])
@@ -654,6 +880,41 @@ def stack_operation(name, action):
     if action == "remove":
         return json_error(error_message, 503)
     return json_error(error_message, 404)
+
+
+@app.route("/stack/<name>/details")
+@require_login
+def stack_details(name):
+    if not SAFE_NAME.fullmatch(name):
+        return json_error("Nieprawidłowa nazwa stacka")
+    compose_file = STACKS_PATH / name / "docker-compose.yml"
+    if not compose_file.is_file():
+        return json_error("Nie znaleziono pliku Compose dla tego stacka", 404)
+    try:
+        compose = compose_file.read_text(encoding="utf-8")
+        parsed = yaml.safe_load(compose) or {}
+        services = parsed.get("services", {})
+        return jsonify(
+            {
+                "name": name,
+                "path": str(compose_file),
+                "compose": compose,
+                "services": [
+                    {
+                        "name": service_name,
+                        "image": service.get("image"),
+                        "build": service.get("build"),
+                        "ports": service.get("ports", []),
+                        "volumes": service.get("volumes", []),
+                        "depends_on": service.get("depends_on", []),
+                    }
+                    for service_name, service in services.items()
+                    if isinstance(service, dict)
+                ],
+            }
+        )
+    except (OSError, yaml.YAMLError) as exc:
+        return json_error(f"Nie udało się odczytać konfiguracji stacka: {exc}", 500)
 
 
 @app.route("/health")

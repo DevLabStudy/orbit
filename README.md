@@ -5,10 +5,12 @@ Lekki panel webowy do zarządzania lokalnym Docker Engine — prostsza alternaty
 ## Funkcje
 
 - kontenery: lista, status, porty, start, stop, restart, usuwanie i logi,
+- konfiguracja kontenera: zmiana sieci i mapowań portów; zapis odtwarza kontener z zachowaniem obrazu, zmiennych i volume,
 - tworzenie kontenerów z obrazem, nazwą, portami, zmiennymi środowiskowymi i polityką restartu,
-- obrazy: pobieranie i usuwanie,
+- obrazy: pobieranie, budowanie z Dockerfile, szczegóły, usuwanie i czyszczenie obrazów bez tagów,
 - volume oraz sieci: tworzenie i usuwanie,
-- stacki Docker Compose: uruchamianie, zatrzymywanie, restart i usuwanie,
+- stacki Docker Compose: tworzenie, lista usług i kontenerów, uruchamianie, zatrzymywanie, restart i usuwanie,
+- opcje stacka: podgląd YAML Compose, usług, obrazów, portów, volume i zależności,
 - logowanie użytkownika i trwałe dane w SQLite,
 - automatyczne odświeżanie statusu panelu,
 - API `/api/v1` z tokenami Bearer dla aplikacji desktop/mobile.
@@ -45,29 +47,33 @@ Otwórz panel: <http://localhost:5001>
 
 ### Docker Compose
 
-```yaml
-services:
-  orbit:
-    build: .
-    container_name: orbit
-    user: root
-    ports:
-      - "5001:5000"
-    environment:
-      ORBIT_SECRET_KEY: "wstaw-tutaj-losowy-sekret"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - orbit-data:/app/data
-    restart: unless-stopped
+Plik `docker-compose.yml` jest już w repozytorium. Przed pierwszym uruchomieniem
+utwórz lokalny plik `.env` na podstawie przykładu:
 
-volumes:
-  orbit-data:
+```bash
+cp .env.example .env
+sed -i "s/replace-with-a-long-random-secret/$(openssl rand -hex 32)/" .env
 ```
+
+Na macOS, jeśli `sed` zgłosi błąd, otwórz `.env` i ręcznie wklej wynik:
+`openssl rand -hex 32`.
 
 Uruchom:
 
 ```bash
 docker compose up -d --build
+```
+
+Zatrzymanie:
+
+```bash
+docker compose down
+```
+
+Logi:
+
+```bash
+docker compose logs -f orbit
 ```
 
 > **Uwaga:** dostęp do Docker socket daje aplikacji uprawnienia do zarządzania Dockerem na hoście. Nie wystawiaj panelu publicznie bez HTTPS, ochrony sieciowej i silnego hasła.
@@ -82,7 +88,13 @@ Wygeneruj go na Linux/macOS:
 openssl rand -hex 32
 ```
 
-Następnie ustaw wynik jako `ORBIT_SECRET_KEY`. Klucz powinien być długi, losowy i nie powinien trafić do repozytorium ani publicznego README. Po zmianie klucza aktywne sesje przeglądarki zostaną unieważnione.
+Następnie wpisz wynik do lokalnego pliku `.env`:
+
+```env
+ORBIT_SECRET_KEY=wynik-komendy-openssl
+```
+
+Plik `.env` jest ignorowany przez Git i powinien pozostać tylko na komputerze lub serwerze, na którym działa Orbit. Nie wysyłaj go na GitHub ani nie wklejaj sekretu do README. Po zmianie klucza aktywne sesje przeglądarki zostaną unieważnione.
 
 ## Pierwsze użycie
 
@@ -130,9 +142,30 @@ curl http://localhost:5001/api/v1/status \
 | `POST` | `/api/v1/containers/{id}/start` | uruchomienie |
 | `POST` | `/api/v1/containers/{id}/stop` | zatrzymanie |
 | `POST` | `/api/v1/containers/{id}/restart` | restart |
+| `POST` | `/api/v1/containers/{id}/update` | zmiana sieci i mapowań portów |
 | `DELETE` | `/api/v1/containers/{id}` | usunięcie |
 | `GET` | `/api/v1/containers/{id}/logs` | logi |
 | `POST` | `/api/v1/images/pull` | pobranie obrazu |
+| `POST` | `/api/v1/images/build` | zbudowanie obrazu z Dockerfile |
+
+W zakładce **Obrazy** można pobrać obraz z rejestru albo zbudować go z
+Dockerfile. Dostępne są również szczegóły obrazu, usuwanie oraz czyszczenie
+obrazów dangling, czyli bez tagów.
+
+W zakładce **Stacki Compose** można wkleić YAML, uruchomić stack oraz zobaczyć
+jego usługi, kontenery i statusy. Stacki wymagają Docker Compose v2 oraz
+dostępu Orbit do Docker Engine.
+
+Przycisk **Opcje** przy kontenerze otwiera jego bezpieczny opis techniczny.
+Przycisk **Opcje** przy stacku pokazuje zapisany plik Compose i strukturę usług.
+Orbit nie udostępnia dowolnych plików z hosta — podgląd ogranicza się do
+konfiguracji zasobów zarządzanych przez aplikację.
+
+## Pomoc i kontakt
+
+Błędy panelu zawierają bezpośredni odnośnik do pomocy:
+<https://www.devlabstudy.ovh>. Ten sam link znajduje się w dolnym panelu
+wsparcia dashboardu.
 
 Wszystkie endpointy poza logowaniem wymagają:
 
@@ -174,6 +207,14 @@ Przykładowa odpowiedź:
 ## Rozwój
 
 Planowane rozszerzenia API obejmują statystyki zasobów, terminal exec, zarządzanie wieloma hostami Docker i powiadomienia.
+
+## Wsparcie projektu
+
+Jeśli Orbit jest dla Ciebie przydatny, możesz wesprzeć rozwój:
+
+- [GitHub](https://github.com/DevLabStudy)
+- [Patreon](https://patreon.com/DevStudyLab)
+- [Buy Me a Coffee](https://buymeacoffee.com/DevLabStudy)
 
 ## Licencja
 

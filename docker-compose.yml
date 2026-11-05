@@ -1,0 +1,16 @@
+services:
+  orbit:
+    build: .
+    container_name: orbit
+    user: root
+    ports:
+      - "5001:5000"
+    env_file:
+      - .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - orbit-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  orbit-data:

@@ -1,5 +1,5 @@
 let cachedData = null;
-let activeTab = null;
+let activeTab = 'containers';
 let currentLogsContainer = null;
 
 function escapeHtml(value) {
@@ -14,6 +14,23 @@ function formatPorts(ports) {
         const mapping = port.host ? `${port.host} → ${port.container}` : `→ ${port.container}`;
         return port.url ? `<a href="${escapeHtml(port.url)}" target="_blank" rel="noopener">${escapeHtml(mapping)}</a>` : escapeHtml(mapping);
     }).join(', ');
+}
+
+function containerLinks(ports) {
+    if (!ports) return '';
+    return ports
+        .filter(port => port.url)
+        .map(port => {
+            const label = port.host ? `Przejdź do ${port.host}` : `Otwórz ${port.container}`;
+            return `<a class="action-btn start container-link" href="${escapeHtml(port.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+        })
+        .join('');
+}
+
+function showError(data, fallback = 'Wystąpił błąd') {
+    const message = data && data.message ? data.message : fallback;
+    const help = data && data.help_url ? `<br><a href="${data.help_url}" target="_blank" rel="noopener">Kontakt i pomoc: devlabstudy.ovh</a>` : '';
+    showToast(message + help, 'error', true);
 }
 
 // ============ ODŚWIEŻANIE DANYCH ============
@@ -38,7 +55,7 @@ async function refreshData() {
             updateList(activeTab);
         }
     } catch (err) {
-        console.error("Fetch error:", err);
+        showToast('Nie udało się odświeżyć danych. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc: devlabstudy.ovh</a>', 'error', true);
     }
 }
 
@@ -58,6 +75,7 @@ function updateList(type) {
     const list = document.getElementById('details-list');
     const header = document.getElementById('details-header');
     const addBtn = document.getElementById('btn-add');
+    const cleanBtn = document.getElementById('btn-clean');
     list.innerHTML = '';
 
     if (!cachedData) return;
@@ -70,9 +88,20 @@ function updateList(type) {
         stacks: 'Stacks'
     };
     header.innerText = titles[type] || 'Lista';
+    const subtitle = document.getElementById('details-subtitle');
+    if (subtitle) {
+        subtitle.innerText = {
+            containers: 'Wszystkie kontenery i ich mapowania portów',
+            images: 'Obrazy dostępne lokalnie',
+            volumes: 'Trwałe dane Dockera',
+            networks: 'Sieci i połączenia kontenerów',
+            stacks: 'Projekty Docker Compose'
+        }[type] || 'Zasoby środowiska';
+    }
 
     // Pokaż przycisk dodawania dla wszystkich typów
     addBtn.style.display = ['containers', 'volumes', 'networks', 'images', 'stacks'].includes(type) ? 'block' : 'none';
+    if (cleanBtn) cleanBtn.style.display = type === 'images' ? 'inline-block' : 'none';
 
     const items = cachedData[type] || [];
 
@@ -93,15 +122,17 @@ function updateList(type) {
                         <div class="item-name">${escapeHtml(item.name)}</div>
                         <div class="item-details">${escapeHtml(item.image)}</div>
                         <div class="item-details ports">${formatPorts(item.ports)}</div>
+                        <div class="actions" style="justify-content:flex-start; margin-top:8px;">${containerLinks(item.ports)}</div>
                     </div>
                 </div>
                 <div class="item-meta">
                     <div class="actions">
-                        ${item.status !== 'running' ? `<button class="action-btn start" onclick="containerAction('${item.id}', 'start')">▶</button>` : ''}
-                        ${item.status === 'running' ? `<button class="action-btn stop" onclick="containerAction('${item.id}', 'stop')">⏹</button>` : ''}
-                        <button class="action-btn restart" onclick="containerAction('${item.id}', 'restart')">🔄</button>
-                        <button class="action-btn logs" onclick="showLogs('${item.id}', '${item.name}')">📋</button>
-                        <button class="action-btn remove" onclick="containerAction('${item.id}', 'remove')">🗑</button>
+                        ${item.status !== 'running' ? `<button class="action-btn start" title="Uruchom kontener" onclick="containerAction('${item.id}', 'start')">Uruchom</button>` : ''}
+                        ${item.status === 'running' ? `<button class="action-btn stop" title="Zatrzymaj kontener" onclick="containerAction('${item.id}', 'stop')">Zatrzymaj</button>` : ''}
+                        <button class="action-btn restart" title="Uruchom kontener ponownie" onclick="containerAction('${item.id}', 'restart')">Restart</button>
+                        <button class="action-btn logs" title="Pokaż ostatnie logi" onclick="showLogs('${item.id}', '${escapeHtml(item.name)}')">Logi</button>
+                        <button class="action-btn logs" title="Zmień sieć i porty kontenera" onclick="editContainer('${item.id}', '${escapeHtml(item.name)}')">Konfiguracja</button>
+                        <button class="action-btn remove" title="Usuń kontener" onclick="containerAction('${item.id}', 'remove')">Usuń</button>
                     </div>
                     <div style="text-align:right;">
                         <div class="item-details">${escapeHtml(item.status.toUpperCase())}</div>
@@ -114,15 +145,17 @@ function updateList(type) {
                 <div class="info">
                     <div class="dot default"></div>
                     <div>
-                        <div class="item-name">${item.tags[0]}</div>
-                        <div class="item-id">${item.id}</div>
+                        <div class="item-name">${escapeHtml(item.tags[0])}</div>
+                        <div class="item-details">${escapeHtml(item.tags.slice(1).join(', '))}</div>
+                        <div class="item-id">${escapeHtml(item.id)}</div>
                     </div>
                 </div>
                 <div class="item-meta">
                     <div class="actions">
-                        <button class="action-btn remove" onclick="imageRemove('${item.id}')">🗑</button>
+                        <button class="action-btn logs" title="Pokaż szczegóły obrazu" onclick="showImageDetails('${item.id}')">Szczegóły</button>
+                        <button class="action-btn remove" title="Usuń obraz" onclick="imageRemove('${item.id}')">Usuń</button>
                     </div>
-                    <div class="item-details">${item.size}</div>
+                    <div class="item-details">${escapeHtml(item.size)}</div>
                 </div>
             `;
         } else if (type === 'volumes') {
@@ -136,7 +169,7 @@ function updateList(type) {
                 </div>
                 <div class="item-meta">
                     <div class="actions">
-                        <button class="action-btn remove" onclick="volumeRemove('${item.name}')">🗑</button>
+                        <button class="action-btn remove" title="Usuń volume" onclick="volumeRemove('${item.name}')">Usuń</button>
                     </div>
                     <div class="item-details">${item.driver}</div>
                 </div>
@@ -152,7 +185,7 @@ function updateList(type) {
                 </div>
                 <div class="item-meta">
                     <div class="actions">
-                        <button class="action-btn remove" onclick="networkRemove('${item.id}')">🗑</button>
+                        <button class="action-btn remove" title="Usuń sieć" onclick="networkRemove('${item.id}')">Usuń</button>
                     </div>
                     <div class="item-details">${item.driver} / ${item.scope}</div>
                 </div>
@@ -171,16 +204,18 @@ function updateList(type) {
                 <div class="info">
                     <div class="dot ${statusClass}"></div>
                     <div>
-                        <div class="item-name">${item.name}</div>
+                        <div class="item-name">${escapeHtml(item.name)}</div>
+                        <div class="item-details">${item.containers.map(c => `${escapeHtml(c.name)} (${escapeHtml(c.image || '')})`).join(' · ')}</div>
                         <div class="stack-containers">${containerDots}</div>
                     </div>
                 </div>
                 <div class="item-meta">
                     <div class="actions">
-                        <button class="action-btn start" onclick="stackAction('${item.name}', 'start')">▶</button>
-                        <button class="action-btn stop" onclick="stackAction('${item.name}', 'stop')">⏹</button>
-                        <button class="action-btn restart" onclick="stackAction('${item.name}', 'restart')">🔄</button>
-                        <button class="action-btn remove" onclick="stackAction('${item.name}', 'remove')">🗑</button>
+                        <button class="action-btn start" title="Uruchom stack" onclick="stackAction('${item.name}', 'start')">Uruchom</button>
+                        <button class="action-btn stop" title="Zatrzymaj stack" onclick="stackAction('${item.name}', 'stop')">Zatrzymaj</button>
+                        <button class="action-btn restart" title="Uruchom stack ponownie" onclick="stackAction('${item.name}', 'restart')">Restart</button>
+                        <button class="action-btn logs" title="Pokaż Compose i usługi" onclick="showStackDetails('${item.name}')">Opcje</button>
+                        <button class="action-btn remove" title="Usuń stack" onclick="stackAction('${item.name}', 'remove')">Usuń</button>
                     </div>
                     <div style="text-align:right;">
                         <div class="item-details">${runningCount}/${totalCount} running</div>
@@ -201,7 +236,7 @@ async function containerAction(id, action) {
     try {
         const res = await fetch(`/container/${id}/${action}`, { method: 'POST' });
         const data = await res.json();
-        showToast(data.message, res.ok ? 'success' : 'error');
+        res.ok ? showToast(data.message, 'success') : showError(data);
         refreshData();
     } catch (err) {
         showToast('Błąd: ' + err, 'error');
@@ -213,10 +248,123 @@ async function imageRemove(id) {
     try {
         const res = await fetch(`/image/${id}/remove`, { method: 'POST' });
         const data = await res.json();
-        showToast(data.message, res.ok ? 'success' : 'error');
+        res.ok ? showToast(data.message, 'success') : showError(data);
         refreshData();
     } catch (err) {
         showToast('Błąd: ' + err, 'error');
+    }
+
+}
+
+async function showImageDetails(id) {
+    try {
+        const res = await fetch(`/image/${encodeURIComponent(id)}/inspect`);
+        const data = await res.json();
+        if (!res.ok) return showError(data, 'Nie udało się odczytać obrazu');
+        const size = Math.round((data.size || 0) / 1024 / 1024);
+        showToast(`${data.tags.join(', ')} · ${size} MB · ${data.layers} warstw`, 'success');
+    } catch (err) {
+        showToast('Błąd odczytu obrazu: ' + err, 'error');
+    }
+}
+
+async function showContainerDetails(id, name) {
+    document.getElementById('details-title').innerText = `Opcje kontenera: ${name}`;
+    document.getElementById('details-content').innerText = 'Ładowanie...';
+    document.getElementById('details-modal').classList.add('visible');
+    try {
+        const res = await fetch(`/container/${encodeURIComponent(id)}/inspect`);
+        const data = await res.json();
+        if (!res.ok) return showError(data);
+        document.getElementById('details-content').innerText = JSON.stringify(data, null, 2);
+    } catch (err) {
+        showToast('Nie udało się pobrać opcji kontenera. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
+    }
+}
+
+async function editContainer(id, name) {
+        try {
+            const res = await fetch(`/container/${encodeURIComponent(id)}/inspect`);
+            const data = await res.json();
+            if (!res.ok) return showError(data);
+
+            const networkSelect = document.getElementById('edit-network');
+            networkSelect.innerHTML = '<option value="">Domyślna sieć bridge</option>';
+            (cachedData.networks || []).forEach(net => {
+                networkSelect.innerHTML += `<option value="${escapeHtml(net.name)}">${escapeHtml(net.name)}</option>`;
+            });
+            const selectedNetwork = (data.networks || []).find(item => item !== 'bridge') || '';
+            networkSelect.value = selectedNetwork;
+            document.getElementById('edit-container-id').value = id;
+            document.getElementById('edit-container-name').innerText = name;
+            document.getElementById('edit-ports').value = (data.ports || [])
+                .filter(port => port.host)
+                .map(port => `${port.host.split(':').pop()}:${port.container.split('/')[0]}`)
+                .join(', ');
+            document.getElementById('container-edit-modal').classList.add('visible');
+        } catch (err) {
+            showToast('Nie udało się odczytać konfiguracji kontenera. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
+        }
+    }
+
+async function saveContainerConfig() {
+        const id = document.getElementById('edit-container-id').value;
+        const network = document.getElementById('edit-network').value;
+        const ports = {};
+        const rawPorts = document.getElementById('edit-ports').value.trim();
+        if (rawPorts) {
+            for (const mapping of rawPorts.split(',')) {
+                const [host, container] = mapping.trim().split(':').map(value => value.trim());
+                if (!/^\d+$/.test(host || '') || !/^\d+$/.test(container || '')) {
+                    showToast('Porty wpisz w formacie host:kontener, np. 8080:80', 'error');
+                    return;
+                }
+                ports[container] = Number(host);
+            }
+        }
+        try {
+            const res = await fetch(`/container/${encodeURIComponent(id)}/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ network, ports })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                closeModal('container-edit-modal');
+                showToast(data.message, 'success');
+                refreshData();
+            } else {
+                showError(data);
+            }
+        } catch (err) {
+            showToast('Nie udało się zapisać konfiguracji: ' + err, 'error');
+        }
+}
+
+async function showStackDetails(name) {
+    document.getElementById('details-title').innerText = `Opcje stacka: ${name}`;
+    document.getElementById('details-content').innerText = 'Ładowanie...';
+    document.getElementById('details-modal').classList.add('visible');
+    try {
+        const res = await fetch(`/stack/${encodeURIComponent(name)}/details`);
+        const data = await res.json();
+        if (!res.ok) return showError(data);
+        const services = data.services.map(service => `${service.name}: ${service.image || 'build'} | porty: ${(service.ports || []).join(', ')}`).join('\n');
+        document.getElementById('details-content').innerText = `Usługi:\n${services || 'brak'}\n\nDocker Compose:\n${data.compose}`;
+    } catch (err) {
+        showToast('Nie udało się pobrać opcji stacka. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
+    }
+}
+
+async function pruneImages() {
+    if (!confirm('Usunąć nieużywane obrazy bez tagów?')) return;
+    try {
+        const res = await fetch('/image/prune', { method: 'POST' });
+        const data = await res.json();
+        res.ok ? showToast(data.message, 'success') : showError(data);
+        refreshData();
+    } catch (err) {
+        showToast('Błąd czyszczenia obrazów: ' + err, 'error');
     }
 }
 
@@ -366,7 +514,7 @@ async function createContainer() {
 
     if (portHost && portContainer) {
         body.ports = {};
-        body.ports[`${portContainer}/tcp`] = parseInt(portHost);
+        body.ports[portContainer] = parseInt(portHost, 10);
     }
 
     if (envRaw) {
@@ -446,6 +594,31 @@ async function pullImage() {
     }
 }
 
+async function buildImage() {
+    const tag = document.getElementById('build-tag').value.trim();
+    const dockerfile = document.getElementById('build-dockerfile').value.trim();
+    if (!tag || !dockerfile) {
+        showToast('Podaj tag i Dockerfile.', 'error');
+        return;
+    }
+    try {
+        showToast('Budowanie obrazu...', 'success');
+        const res = await fetch('/image/build', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tag, dockerfile})
+        });
+        const data = await res.json();
+        res.ok ? showToast(data.message, 'success') : showError(data);
+        if (res.ok) {
+            closeModal('build-modal');
+            refreshData();
+        }
+    } catch (err) {
+        showToast('Błąd budowania obrazu: ' + err, 'error');
+    }
+}
+
 // ============ TABS ============
 
 function toggleTab(type) {
@@ -468,9 +641,10 @@ function toggleTab(type) {
 
 // ============ TOAST ============
 
-function showToast(message, type = 'success') {
+function showToast(message, type = 'success', html = false) {
     const toast = document.getElementById('toast');
-    toast.innerText = message;
+    if (html) toast.innerHTML = message;
+    else toast.innerText = message;
     toast.className = 'toast visible ' + type;
     setTimeout(() => toast.classList.remove('visible'), 3000);
 }
@@ -486,7 +660,7 @@ function logout() {
 async function checkForUpdate() {
     try {
         const currentVersion = "1.0.0";
-        const res = await fetch('https://api.github.com/repos/TobiMessi/orbit/releases/latest');
+        const res = await fetch('https://api.github.com/repos/DevLabStudy/orbit/releases/latest');
         if (!res.ok) return;
 
         const data = await res.json();
@@ -507,5 +681,6 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 refreshData();
+updateList('containers');
 setInterval(refreshData, 5000);
 checkForUpdate();
