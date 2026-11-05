@@ -45,29 +45,33 @@ Otwórz panel: <http://localhost:5001>
 
 ### Docker Compose
 
-```yaml
-services:
-  orbit:
-    build: .
-    container_name: orbit
-    user: root
-    ports:
-      - "5001:5000"
-    environment:
-      ORBIT_SECRET_KEY: "wstaw-tutaj-losowy-sekret"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - orbit-data:/app/data
-    restart: unless-stopped
+Plik `docker-compose.yml` jest już w repozytorium. Przed pierwszym uruchomieniem
+utwórz lokalny plik `.env` na podstawie przykładu:
 
-volumes:
-  orbit-data:
+```bash
+cp .env.example .env
+sed -i "s/replace-with-a-long-random-secret/$(openssl rand -hex 32)/" .env
 ```
+
+Na macOS, jeśli `sed` zgłosi błąd, otwórz `.env` i ręcznie wklej wynik:
+`openssl rand -hex 32`.
 
 Uruchom:
 
 ```bash
 docker compose up -d --build
+```
+
+Zatrzymanie:
+
+```bash
+docker compose down
+```
+
+Logi:
+
+```bash
+docker compose logs -f orbit
 ```
 
 > **Uwaga:** dostęp do Docker socket daje aplikacji uprawnienia do zarządzania Dockerem na hoście. Nie wystawiaj panelu publicznie bez HTTPS, ochrony sieciowej i silnego hasła.
@@ -82,7 +86,13 @@ Wygeneruj go na Linux/macOS:
 openssl rand -hex 32
 ```
 
-Następnie ustaw wynik jako `ORBIT_SECRET_KEY`. Klucz powinien być długi, losowy i nie powinien trafić do repozytorium ani publicznego README. Po zmianie klucza aktywne sesje przeglądarki zostaną unieważnione.
+Następnie wpisz wynik do lokalnego pliku `.env`:
+
+```env
+ORBIT_SECRET_KEY=wynik-komendy-openssl
+```
+
+Plik `.env` jest ignorowany przez Git i powinien pozostać tylko na komputerze lub serwerze, na którym działa Orbit. Nie wysyłaj go na GitHub ani nie wklejaj sekretu do README. Po zmianie klucza aktywne sesje przeglądarki zostaną unieważnione.
 
 ## Pierwsze użycie
 
