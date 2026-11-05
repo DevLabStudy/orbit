@@ -109,11 +109,11 @@ function updateList(type) {
                 </div>
                 <div class="item-meta">
                     <div class="actions">
-                        ${item.status !== 'running' ? `<button class="action-btn start" onclick="containerAction('${item.id}', 'start')">▶</button>` : ''}
-                        ${item.status === 'running' ? `<button class="action-btn stop" onclick="containerAction('${item.id}', 'stop')">⏹</button>` : ''}
-                        <button class="action-btn restart" onclick="containerAction('${item.id}', 'restart')">🔄</button>
-                        <button class="action-btn logs" onclick="showLogs('${item.id}', '${item.name}')">📋</button>
-                        <button class="action-btn remove" onclick="containerAction('${item.id}', 'remove')">🗑</button>
+                        ${item.status !== 'running' ? `<button class="action-btn start" title="Uruchom kontener" onclick="containerAction('${item.id}', 'start')">Uruchom</button>` : ''}
+                        ${item.status === 'running' ? `<button class="action-btn stop" title="Zatrzymaj kontener" onclick="containerAction('${item.id}', 'stop')">Zatrzymaj</button>` : ''}
+                        <button class="action-btn restart" title="Uruchom kontener ponownie" onclick="containerAction('${item.id}', 'restart')">Restart</button>
+                        <button class="action-btn logs" title="Pokaż ostatnie logi" onclick="showLogs('${item.id}', '${escapeHtml(item.name)}')">Logi</button>
+                        <button class="action-btn remove" title="Usuń kontener" onclick="containerAction('${item.id}', 'remove')">Usuń</button>
                     </div>
                     <div style="text-align:right;">
                         <div class="item-details">${escapeHtml(item.status.toUpperCase())}</div>
@@ -133,8 +133,8 @@ function updateList(type) {
                 </div>
                 <div class="item-meta">
                     <div class="actions">
-                        <button class="action-btn logs" onclick="showImageDetails('${item.id}')">ℹ</button>
-                        <button class="action-btn remove" onclick="imageRemove('${item.id}')">🗑</button>
+                        <button class="action-btn logs" title="Pokaż szczegóły obrazu" onclick="showImageDetails('${item.id}')">Szczegóły</button>
+                        <button class="action-btn remove" title="Usuń obraz" onclick="imageRemove('${item.id}')">Usuń</button>
                     </div>
                     <div class="item-details">${escapeHtml(item.size)}</div>
                 </div>
@@ -150,7 +150,7 @@ function updateList(type) {
                 </div>
                 <div class="item-meta">
                     <div class="actions">
-                        <button class="action-btn remove" onclick="volumeRemove('${item.name}')">🗑</button>
+                        <button class="action-btn remove" title="Usuń volume" onclick="volumeRemove('${item.name}')">Usuń</button>
                     </div>
                     <div class="item-details">${item.driver}</div>
                 </div>
@@ -166,7 +166,7 @@ function updateList(type) {
                 </div>
                 <div class="item-meta">
                     <div class="actions">
-                        <button class="action-btn remove" onclick="networkRemove('${item.id}')">🗑</button>
+                        <button class="action-btn remove" title="Usuń sieć" onclick="networkRemove('${item.id}')">Usuń</button>
                     </div>
                     <div class="item-details">${item.driver} / ${item.scope}</div>
                 </div>
@@ -192,10 +192,10 @@ function updateList(type) {
                 </div>
                 <div class="item-meta">
                     <div class="actions">
-                        <button class="action-btn start" onclick="stackAction('${item.name}', 'start')">▶</button>
-                        <button class="action-btn stop" onclick="stackAction('${item.name}', 'stop')">⏹</button>
-                        <button class="action-btn restart" onclick="stackAction('${item.name}', 'restart')">🔄</button>
-                        <button class="action-btn remove" onclick="stackAction('${item.name}', 'remove')">🗑</button>
+                        <button class="action-btn start" title="Uruchom stack" onclick="stackAction('${item.name}', 'start')">Uruchom</button>
+                        <button class="action-btn stop" title="Zatrzymaj stack" onclick="stackAction('${item.name}', 'stop')">Zatrzymaj</button>
+                        <button class="action-btn restart" title="Uruchom stack ponownie" onclick="stackAction('${item.name}', 'restart')">Restart</button>
+                        <button class="action-btn remove" title="Usuń stack" onclick="stackAction('${item.name}', 'remove')">Usuń</button>
                     </div>
                     <div style="text-align:right;">
                         <div class="item-details">${runningCount}/${totalCount} running</div>

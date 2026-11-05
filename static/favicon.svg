@@ -1,6 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="45" fill="#0d1117" stroke="#58a6ff" stroke-width="3"/>
-  <circle cx="50" cy="50" r="20" fill="#58a6ff"/>
-  <ellipse cx="50" cy="50" rx="40" ry="15" fill="none" stroke="#3fb950" stroke-width="2" transform="rotate(-30 50 50)"/>
-  <ellipse cx="50" cy="50" rx="40" ry="15" fill="none" stroke="#f85149" stroke-width="2" transform="rotate(30 50 50)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5eead4"/><stop offset="1" stop-color="#60a5fa"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#080c16"/>
+  <path d="M32 10 48 19v18L32 46l-16-9V19l16-9Z" fill="none" stroke="url(#g)" stroke-width="4" stroke-linejoin="round"/>
+  <path d="m25 27 7-5 7 5v9l-7 4-7-4v-9Z" fill="url(#g)"/>
 </svg>
