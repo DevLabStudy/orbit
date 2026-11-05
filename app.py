@@ -535,7 +535,8 @@ def container_create():
             return json_error("Porty muszą być mapą portu kontenera na port hosta")
         normalized_ports = {}
         for container_port, host_port in ports.items():
-            if not str(container_port).isdigit() or not str(host_port).isdigit():
+            container_port = str(container_port).split("/", 1)[0].strip()
+            if not container_port.isdigit() or not str(host_port).isdigit():
                 return json_error("Porty muszą być liczbami")
             normalized_ports[f"{container_port}/tcp"] = int(host_port)
         environment = data.get("env") or []

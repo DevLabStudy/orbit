@@ -443,7 +443,7 @@ async function createContainer() {
 
     if (portHost && portContainer) {
         body.ports = {};
-        body.ports[`${portContainer}/tcp`] = parseInt(portHost);
+        body.ports[portContainer] = parseInt(portHost, 10);
     }
 
     if (envRaw) {
