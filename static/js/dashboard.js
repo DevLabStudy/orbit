@@ -242,56 +242,58 @@ async function imageRemove(id) {
         showToast('Błąd: ' + err, 'error');
     }
 
-    async function showImageDetails(id) {
-        try {
-            const res = await fetch(`/image/${encodeURIComponent(id)}/inspect`);
-            const data = await res.json();
-            if (!res.ok) {
-                showError(data, 'Nie udało się odczytać obrazu');
-                return;
-            }
+}
 
-            async function showContainerDetails(id, name) {
-                document.getElementById('details-title').innerText = `Opcje kontenera: ${name}`;
-                document.getElementById('details-content').innerText = 'Ładowanie...';
-                document.getElementById('details-modal').classList.add('visible');
-                try {
-                    const res = await fetch(`/container/${encodeURIComponent(id)}/inspect`);
-                    const data = await res.json();
-                    if (!res.ok) return showError(data);
-                    document.getElementById('details-content').innerText = JSON.stringify(data, null, 2);
-                } catch (err) {
-                    showToast('Nie udało się pobrać opcji kontenera. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
-                }
-            }
-
-            async function showStackDetails(name) {
-                document.getElementById('details-title').innerText = `Opcje stacka: ${name}`;
-                document.getElementById('details-content').innerText = 'Ładowanie...';
-                document.getElementById('details-modal').classList.add('visible');
-                try {
-                    const res = await fetch(`/stack/${encodeURIComponent(name)}/details`);
-                    const data = await res.json();
-                    if (!res.ok) return showError(data);
-                    const services = data.services.map(service => `${service.name}: ${service.image || 'build'} | porty: ${(service.ports || []).join(', ')}`).join('\n');
-                    document.getElementById('details-content').innerText = `Usługi:\n${services || 'brak'}\n\nDocker Compose:\n${data.compose}`;
-                } catch (err) {
-                    showToast('Nie udało się pobrać opcji stacka. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
-                }
-            }
-            const size = Math.round((data.size || 0) / 1024 / 1024);
-            showToast(`${data.tags.join(', ')} · ${size} MB · ${data.layers} warstw`, 'success');
-        } catch (err) {
-            showToast('Błąd odczytu obrazu: ' + err, 'error');
-        }
+async function showImageDetails(id) {
+    try {
+        const res = await fetch(`/image/${encodeURIComponent(id)}/inspect`);
+        const data = await res.json();
+        if (!res.ok) return showError(data, 'Nie udało się odczytać obrazu');
+        const size = Math.round((data.size || 0) / 1024 / 1024);
+        showToast(`${data.tags.join(', ')} · ${size} MB · ${data.layers} warstw`, 'success');
+    } catch (err) {
+        showToast('Błąd odczytu obrazu: ' + err, 'error');
     }
+}
 
-    async function pruneImages() {
-        if (!confirm('Usunąć nieużywane obrazy bez tagów?')) return;
+async function showContainerDetails(id, name) {
+    document.getElementById('details-title').innerText = `Opcje kontenera: ${name}`;
+    document.getElementById('details-content').innerText = 'Ładowanie...';
+    document.getElementById('details-modal').classList.add('visible');
+    try {
+        const res = await fetch(`/container/${encodeURIComponent(id)}/inspect`);
+        const data = await res.json();
+        if (!res.ok) return showError(data);
+        document.getElementById('details-content').innerText = JSON.stringify(data, null, 2);
+    } catch (err) {
+        showToast('Nie udało się pobrać opcji kontenera. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
+    }
+}
+
+async function showStackDetails(name) {
+    document.getElementById('details-title').innerText = `Opcje stacka: ${name}`;
+    document.getElementById('details-content').innerText = 'Ładowanie...';
+    document.getElementById('details-modal').classList.add('visible');
+    try {
+        const res = await fetch(`/stack/${encodeURIComponent(name)}/details`);
+        const data = await res.json();
+        if (!res.ok) return showError(data);
+        const services = data.services.map(service => `${service.name}: ${service.image || 'build'} | porty: ${(service.ports || []).join(', ')}`).join('\n');
+        document.getElementById('details-content').innerText = `Usługi:\n${services || 'brak'}\n\nDocker Compose:\n${data.compose}`;
+    } catch (err) {
+        showToast('Nie udało się pobrać opcji stacka. <a href="https://www.devlabstudy.ovh" target="_blank" rel="noopener">Kontakt i pomoc</a>', 'error', true);
+    }
+}
+
+async function pruneImages() {
+    if (!confirm('Usunąć nieużywane obrazy bez tagów?')) return;
+    try {
         const res = await fetch('/image/prune', { method: 'POST' });
         const data = await res.json();
-        showToast(data.message, res.ok ? 'success' : 'error');
+        res.ok ? showToast(data.message, 'success') : showError(data);
         refreshData();
+    } catch (err) {
+        showToast('Błąd czyszczenia obrazów: ' + err, 'error');
     }
 }
 
@@ -505,27 +507,6 @@ async function pullImage() {
         return;
     }
 
-    async function buildImage() {
-        const tag = document.getElementById('build-tag').value.trim();
-        const dockerfile = document.getElementById('build-dockerfile').value.trim();
-        if (!tag || !dockerfile) {
-            showToast('Podaj tag i Dockerfile.', 'error');
-            return;
-        }
-        showToast('Budowanie obrazu...', 'success');
-        const res = await fetch('/image/build', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({tag, dockerfile})
-        });
-        const data = await res.json();
-        showToast(data.message, res.ok ? 'success' : 'error');
-        if (res.ok) {
-            closeModal('build-modal');
-            refreshData();
-        }
-    }
-
     try {
         showToast('Pobieranie obrazu...', 'success');
         const res = await fetch('/image/pull', {
@@ -539,6 +520,31 @@ async function pullImage() {
         refreshData();
     } catch (err) {
         showToast('Błąd: ' + err, 'error');
+    }
+}
+
+async function buildImage() {
+    const tag = document.getElementById('build-tag').value.trim();
+    const dockerfile = document.getElementById('build-dockerfile').value.trim();
+    if (!tag || !dockerfile) {
+        showToast('Podaj tag i Dockerfile.', 'error');
+        return;
+    }
+    try {
+        showToast('Budowanie obrazu...', 'success');
+        const res = await fetch('/image/build', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tag, dockerfile})
+        });
+        const data = await res.json();
+        res.ok ? showToast(data.message, 'success') : showError(data);
+        if (res.ok) {
+            closeModal('build-modal');
+            refreshData();
+        }
+    } catch (err) {
+        showToast('Błąd budowania obrazu: ' + err, 'error');
     }
 }
 
