@@ -157,12 +157,15 @@ def format_ports(container):
             ports.append({"container": container_port, "host": None, "url": None})
             continue
         for binding in bindings:
-            host = f"{binding.get('HostIp', '0.0.0.0')}:{binding.get('HostPort')}"
+            host_ip = binding.get("HostIp") or "127.0.0.1"
+            browser_host = "localhost" if host_ip in {"0.0.0.0", "127.0.0.1", "::"} else host_ip
+            host = f"{browser_host}:{binding.get('HostPort')}"
+            protocol = container_port.rsplit("/", 1)[-1].lower()
             ports.append(
                 {
                     "container": container_port,
                     "host": host,
-                    "url": f"http://{host}" if container_port.startswith(("80/", "443/")) else None,
+                    "url": f"http://{host}" if protocol == "tcp" else None,
                 }
             )
     return ports
