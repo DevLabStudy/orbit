@@ -2,6 +2,20 @@ let cachedData = null;
 let activeTab = null;
 let currentLogsContainer = null;
 
+function escapeHtml(value) {
+    const node = document.createElement('span');
+    node.textContent = value == null ? '' : String(value);
+    return node.innerHTML;
+}
+
+function formatPorts(ports) {
+    if (!ports || ports.length === 0) return 'brak wystawionych portów';
+    return ports.map(port => {
+        const mapping = port.host ? `${port.host} → ${port.container}` : `→ ${port.container}`;
+        return port.url ? `<a href="${escapeHtml(port.url)}" target="_blank" rel="noopener">${escapeHtml(mapping)}</a>` : escapeHtml(mapping);
+    }).join(', ');
+}
+
 // ============ ODŚWIEŻANIE DANYCH ============
 
 async function refreshData() {
@@ -76,8 +90,9 @@ function updateList(type) {
                 <div class="info">
                     <div class="dot ${item.status}"></div>
                     <div>
-                        <div class="item-name">${item.name}</div>
-                        <div class="item-details">${item.image}</div>
+                        <div class="item-name">${escapeHtml(item.name)}</div>
+                        <div class="item-details">${escapeHtml(item.image)}</div>
+                        <div class="item-details ports">${formatPorts(item.ports)}</div>
                     </div>
                 </div>
                 <div class="item-meta">
@@ -89,8 +104,8 @@ function updateList(type) {
                         <button class="action-btn remove" onclick="containerAction('${item.id}', 'remove')">🗑</button>
                     </div>
                     <div style="text-align:right;">
-                        <div class="item-details">${item.status.toUpperCase()}</div>
-                        <div class="item-id">${item.id}</div>
+                        <div class="item-details">${escapeHtml(item.status.toUpperCase())}</div>
+                        <div class="item-id">${escapeHtml(item.id)}</div>
                     </div>
                 </div>
             `;
