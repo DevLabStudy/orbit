@@ -1,24 +1,23 @@
-DEVLABSTUDY SOURCE-AVAILABLE RESTRICTIVE LICENSE (DSARL-1.0)
+DEVLABSTUDY STRICT SOURCE-AVAILABLE LICENSE (DSAL-STRICT-1.0)
 Copyright (c) 2026 Tobiasz Kajzer (DevLabStudy)
 All rights reserved.
 
 Zasady korzystania z oprogramowania, kodu źródłowego oraz narzędzi wchodzących 
-w skład projektu Pulse (zwanego dalej "Oprogramowaniem").
+w skład niniejszego projektu (zwanego dalej "Oprogramowaniem").
 
 1. UDZIELENIE LICENCJI (DOZWOLONY UŻYTEK)
-Niniejsza licencja ma charakter restrykcyjny (Source-Available). Użytkownik 
-otrzymuje prawo do:
-- Przeglądania, analizowania i studiowania kodu źródłowego w celach edukacyjnych 
-  i badawczych.
+Niniejsza licencja ma charakter restrykcyjny. Użytkownik otrzymuje wyłączne prawo do:
+- Przeglądania, analizowania i studiowania kodu źródłowego w celach edukacyjnych, 
+  badawczych oraz audytu bezpieczeństwa.
 - Uruchamiania, testowania i korzystania z Oprogramowania do celów osobistych, 
   niekomercyjnych.
 
 2. OGRANICZENIA I ZAKAZY
 Bez uprzedniej, pisemnej zgody Autora (Tobiasz Kajzer / DevLabStudy) ZABRANIA SIĘ:
-- Wykorzystywania Oprogramowania, jego części lub pochodnych w jakiejkolwiek 
-  działalności komercyjnej, zarobkowej lub biznesowej.
+- Wykorzystywania Oprogramowania, jego części lub dzieł pochodnych w jakiejkolwiek 
+  działalności komercyjnej, zarobkowej, firmowej lub biznesowej.
 - Oferowania Oprogramowania lub jego modyfikacji jako usługi komercyjnej, 
-  zarządzanej w chmurze (SaaS, PaaS, API commercial hosting).
+  zarządzanej w chmurze (SaaS, PaaS, API hosting komercyjny).
 - Modyfikowania, adaptowania lub tworzenia dzieł pochodnych opartych na kodzie 
   Oprogramowania w celu ich dalszej dystrybucji lub sprzedaży.
 - Redystrybucji, sublicencjonowania lub kopiowania kodu źródłowego (w całości 
@@ -30,5 +29,5 @@ bez jakiejkolwiek gwarancji, wyrażonej lub dorozumianej. Autor nie ponosi
 odpowiedzialności za jakiekolwiek szkody powstałe w wyniku korzystania z Oprogramowania.
 
 4. WŁASNOŚĆ INTELEKTUALNA
-Wszelkie prawa autorskie, znaki towarowe oraz prawa do marki DevLabStudy i Pulse 
+Wszelkie prawa autorskie, znaki towarowe oraz prawa do marki DevLabStudy 
 pozostają wyłączną własnością Autora.
